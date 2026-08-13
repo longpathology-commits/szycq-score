@@ -1,0 +1,15 @@
+# Netlify 静态部署配置（拖拽部署时可选；连 Git 部署时必读）
+[build]
+  publish = "."
+  command = ""
+
+# 数据桶缓存 1 小时，根文件不缓存（便于更新后即时生效）
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[redirects]]
+  from = "/health"
+  to = "/health.json"
+  status = 200

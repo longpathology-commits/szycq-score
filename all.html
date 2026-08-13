@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全部公司 · 守正亦出齐 A股多因子实时评分模型</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#ffffff; --ink:#1f2933; --muted:#6b7280;
+    --line:#e5e7eb; --brand:#2563eb; --brand2:#1e40af;
+    --g1:#C6EFCE; --g1t:#006100; --g2:#D8E4BC; --y:#FFEB9C; --o:#FFD8B1; --r:#FFC7CE; --gr:#F2F2F2; --grt:#9C0006;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);padding:18px 14px 32px;line-height:1.5;}
+  a{color:inherit;text-decoration:none;}
+  .topbar{text-align:center;max-width:1320px;margin:0 auto 14px;}
+  .topbar h1{font-size:26px;font-weight:900;margin:0;letter-spacing:5px;
+    background:linear-gradient(120deg,var(--brand2) 0%, #0f4ec9 40%, #d12c2c 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .topbar h2{font-size:13px;color:var(--muted);margin:4px 0 0;letter-spacing:1.5px;font-weight:500;}
+  .back{display:inline-block;margin-top:6px;font-size:13px;color:var(--brand);cursor:pointer;}
+  .layout{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:260px 1fr;gap:14px;align-items:start;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.04);}
+  /* 筛选面板 */
+  .filter{position:sticky;top:14px;}
+  .filter h3{font-size:14px;margin:0 0 12px;color:var(--ink);border-left:4px solid var(--brand);padding-left:8px;}
+  .frow{margin-bottom:13px;}
+  .frow label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;}
+  .frow select,.frow input[type=number]{width:100%;padding:7px 9px;font-size:13px;border:1.5px solid var(--line);border-radius:9px;background:#fff;outline:none;}
+  .frow select:focus,.frow input:focus{border-color:var(--brand);}
+  .seg{display:flex;gap:6px;}
+  .seg button{flex:1;padding:7px 0;font-size:12px;border:1.5px solid var(--line);background:#fff;border-radius:9px;cursor:pointer;color:var(--muted);}
+  .seg button.on{border-color:var(--brand);color:#fff;background:var(--brand);font-weight:700;}
+  .thr{display:flex;align-items:center;gap:8px;}
+  .thr input[type=range]{flex:1;}
+  .thr .tv{font-size:12px;font-weight:700;min-width:22px;text-align:center;color:var(--brand2);}
+  .soegrp{display:flex;flex-wrap:wrap;gap:6px;}
+  .soegrp button{padding:5px 10px;font-size:12px;border:1.5px solid var(--line);background:#fff;border-radius:9px;cursor:pointer;color:var(--muted);}
+  .soegrp button.on{border-color:var(--brand);color:#fff;background:var(--brand);font-weight:700;}
+  .fbtns{display:flex;gap:8px;margin-top:6px;}
+  .fbtns button{flex:1;padding:10px 0;font-size:13px;border-radius:10px;cursor:pointer;border:none;font-weight:700;}
+  .fbtns .apply{background:var(--brand);color:#fff;}
+  .fbtns .reset{background:#eef2f7;color:var(--ink);}
+  .ftip{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;}
+  /* 右侧表格 */
+  .mainpanel{min-width:0;padding:14px 16px;}
+  .mhead{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+  .mhead .mtitle{font-size:15px;font-weight:700;}
+  .mhead .mcount{font-size:12px;color:var(--muted);}
+  .mhead .legend-mini{margin-left:auto;font-size:11px;color:var(--muted);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:9px 8px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;cursor:pointer;user-select:none;}
+  th:hover{color:var(--brand);}
+  th .arrow{font-size:9px;}
+  td.name{text-align:left;font-weight:600;}
+  td.code{color:var(--muted);font-size:11px;}
+  td.total{font-weight:800;font-size:15px;color:var(--brand2);}
+  td.rank{color:var(--muted);font-weight:700;width:42px;}
+  .sc{font-weight:700;border-radius:6px;padding:2px 7px;display:inline-block;min-width:26px;}
+  tr.row{cursor:pointer;transition:.1s;}
+  tr.row:hover{background:#eef4ff;}
+  /* 分页 */
+  .pager{display:flex;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap;justify-content:center;}
+  .pager button{min-width:34px;padding:7px 10px;font-size:13px;border:1.5px solid var(--line);background:#fff;border-radius:9px;cursor:pointer;color:var(--ink);}
+  .pager button.on{border-color:var(--brand);background:var(--brand);color:#fff;font-weight:700;}
+  .pager button:disabled{opacity:.4;cursor:not-allowed;}
+  .pager .info{font-size:12px;color:var(--muted);margin:0 8px;}
+  .loading{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
+  .val-sub{display:block;font-size:10px;color:var(--muted);font-weight:400;margin-top:1px;}
+  @media(max-width:880px){ .layout{grid-template-columns:1fr;} .filter{position:static;} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>守正亦出齐</h1>
+  <h2>A股多因子实时评分模型 · 全量榜单</h2>
+  <a class="back" href="index.html">← 返回主页</a>
+</div>
+
+<div class="layout">
+  <!-- 左：筛选面板 -->
+  <div class="col">
+    <div class="panel filter" id="filterPanel">
+      <h3>筛选 / 排序</h3>
+
+      <div class="frow">
+        <label>排序依据</label>
+        <select id="sortField">
+          <option value="total">综合总分</option>
+          <option value="peSc">PE 历史百分位</option>
+          <option value="pbSc">PB 历史百分位</option>
+          <option value="divSc">股息率</option>
+          <option value="ncSc">净现金/市值</option>
+          <option value="atSc">企业属性</option>
+          <option value="roSc">近4年ROCE</option>
+          <option value="paSc">近4年派息比例</option>
+          <option value="lowYearPct">现价比一年最低点</option>
+          <option value="rank">原始排名</option>
+        </select>
+      </div>
+      <div class="frow">
+        <label>排序方向</label>
+        <div class="seg" id="sortDir">
+          <button data-dir="desc" class="on">高 → 低</button>
+          <button data-dir="asc">低 → 高</button>
+        </div>
+      </div>
+
+      <div class="frow">
+        <label>各因子得分下限（仅保留 ≥ 该分的公司）</label>
+        <div id="thresholds"></div>
+      </div>
+
+      <div class="frow">
+        <label>企业属性</label>
+        <div class="soegrp" id="soeGrp">
+          <button data-soe="" class="on">全部</button>
+          <button data-soe="央企">央企</button>
+          <button data-soe="地方国企">地方国企</button>
+          <button data-soe="民营">民营</button>
+          <button data-soe="其他">其他</button>
+        </div>
+      </div>
+
+      <div class="fbtns">
+        <button class="apply" id="applyBtn">应用筛选</button>
+        <button class="reset" id="resetBtn">重置</button>
+      </div>
+      <div class="ftip">不同投资者可侧重某些因子：例如价值型投资者把「PE 历史百分位」与「股息率」下限调高，即可筛出在低估值、高分红上得分高的公司。设置下限 0 表示该因子不参与筛选。</div>
+    </div>
+  </div>
+
+  <!-- 右：全量表格 -->
+  <div class="col">
+    <div class="panel mainpanel">
+      <div class="mhead">
+        <span class="mtitle">全部公司评分榜</span>
+        <span class="mcount" id="mcount">加载中…</span>
+        <span class="legend-mini">点击任意行查看实时详情</span>
+      </div>
+      <div id="tableWrap">
+        <div class="loading">加载中…</div>
+      </div>
+      <div class="pager" id="pager"></div>
+    </div>
+  </div>
+</div>
+
+<script src="all.js?v=202608102107"></script>
+</body>
+</html>

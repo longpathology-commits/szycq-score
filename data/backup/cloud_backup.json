@@ -1,0 +1,8 @@
+{
+  "type": "full",
+  "watch": [],
+  "hold": [],
+  "capital": null,
+  "updatedAt": null,
+  "note": "此文件由助手写入，存放用户的标记框/持股框云端备份；前端「从云端恢复」按钮读取。"
+}

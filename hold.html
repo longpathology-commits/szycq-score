@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>持股框 · 守正亦出齐</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --panel:#ffffff; --text:#1d2230; --muted:#6b7280;
+    --border:#e5e7eb; --primary:#3b6ff0; --primary-soft:#e0ebff;
+    --green-bg:#c6efce; --green-fg:#0f5132;
+    --orange-bg:#fde2c2; --orange-fg:#9a4d00;
+    --red-bg:#fbd7d7; --red-fg:#7a1313;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+  header{text-align:center;padding:14px 16px 6px;background:#fff;border-bottom:1px solid var(--border)}
+  header h1{margin:0;font-size:26px;letter-spacing:6px;background:linear-gradient(90deg,#3b6ff0,#7c4dff);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+  header h2{margin:6px 0 0;font-size:13px;font-weight:500;color:var(--muted)}
+  .wrap{max-width:1100px;margin:14px auto;padding:0 14px}
+  .back{display:inline-block;margin-top:6px;font-size:13px;color:var(--primary);text-decoration:none}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
+  .panel h3{margin:0 0 10px;font-size:15px;font-weight:600}
+  .panel h3 .meta{font-weight:normal;font-size:11px;color:var(--muted);margin-left:8px}
+  .hold-table{width:100%;border-collapse:collapse;font-size:13px}
+  .hold-table th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;padding:8px 8px;border-bottom:1px solid var(--border)}
+  .hold-table td{padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .hold-table input{width:96px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-variant-numeric:tabular-nums}
+  .price-cell{font-weight:700;font-variant-numeric:tabular-nums}
+  .code-sm{color:var(--muted);font-size:11px}
+  .mini-btn{padding:4px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--muted);white-space:nowrap}
+  .mini-btn.danger{background:#fde2e2;color:#b42318;border-color:transparent}
+  .watch-tools{display:flex;align-items:center;gap:8px;margin:4px 0 10px;flex-wrap:wrap}
+  .alert-sell{color:#c92a2a;font-weight:700;background:#fde2e2;padding:2px 7px;border-radius:4px}
+  .goto{color:var(--primary);cursor:pointer;text-decoration:underline}
+  .empty-tip{font-size:13px;color:var(--muted);text-align:center;padding:24px 0}
+  .sum{font-size:12px;color:var(--muted);margin-top:10px}
+  .sum b{color:var(--text)}
+  .count-badge{display:inline-block;min-width:18px;padding:1px 8px;margin-left:8px;font-size:12px;font-weight:600;color:#3b6ff0;background:#e0ebff;border-radius:10px;vertical-align:middle;font-variant-numeric:tabular-nums;text-align:center}
+  /* 盈利分析 */
+  .profit-controls{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .profit-controls label{font-size:13px;color:var(--muted)}
+  #capital-input{width:150px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-variant-numeric:tabular-nums}
+  .profit-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+  .pcard{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px}
+  .pcard-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+  .pcard-val{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+  .pcard-val.up{color:#e34d4d}
+  .pcard-val.down{color:#1a9f4b}
+  .profit-chart-wrap{margin-top:4px}
+  #profit-chart{width:100%;height:auto;display:block}
+  .profit-chart-note{font-size:11px;color:var(--muted);margin-top:6px;text-align:right}
+  /* 表格横向滚动 + 新列 */
+  #hold-list{overflow-x:auto}
+  .num-cell{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+  .up{color:#e34d4d !important}
+  .down{color:#1a9f4b !important}
+  @media(max-width:760px){ .profit-cards{grid-template-columns:repeat(3,1fr)} }
+</style>
+</head>
+<body>
+<header>
+  <h1>守正亦出齐</h1>
+  <h2>持股框</h2>
+  <a class="back" href="index.html">← 返回主页</a>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    <h3>盈利分析 <span class="meta">每只持仓 = 总仓位 × 2% · 收益率按总仓位计 · 每日随行情更新</span></h3>
+    <div class="profit-controls">
+      <label>总仓位（本金）¥</label>
+      <input type="number" id="capital-input" min="0" step="10000">
+    </div>
+    <div class="profit-cards" id="profit-cards"></div>
+    <div class="profit-chart-wrap">
+      <svg id="profit-chart" viewBox="0 0 800 260" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="profit-chart-note" id="profit-chart-note"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>持股框 <span id="hold-count" class="count-badge">0</span><span class="meta">买入价买入 · 目标卖出价 = 买入价 × 105% · 现价每 15 秒刷新</span></h3>
+    <div class="watch-tools">
+      <button id="hold-export" class="mini-btn">导出持仓</button>
+      <button id="hold-import" class="mini-btn">导入持仓</button>
+      <button id="hold-cloud-restore" class="mini-btn">从云端恢复</button>
+      <button id="hold-cloud-backup" class="mini-btn">备份到云端</button>
+      <input type="file" id="hold-import-file" accept="application/json" hidden>
+      <span class="meta">导出可备份；换网址后用「导入/从云端恢复」取回</span>
+    </div>
+    <div id="hold-list"></div>
+    <div class="sum" id="hold-sum"></div>
+  </div>
+</div>
+
+<script src="watchstore.js?v=202608131949"></script>
+<script src="hold.js?v=202608131949"></script>
+</body>
+</html>
