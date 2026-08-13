@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202608131845'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202608132310'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -296,9 +296,7 @@ async function selectCode(code){
   let data;
   try {
     const bucketKey = String(parseInt(code.slice(-2),10) % 1).padStart(2,'0');
-    const bk = await fetchGz(dataUrl('data/b/'+bucketKey+'.json.gz'));
-    if(!bk.ok) throw new Error('HTTP '+bk.status);
-    const bkObj = await bk.json();
+    const bkObj = await fetchGz(dataUrl('data/b/'+bucketKey+'.json.gz'));
     data = bkObj[code] || null;
     if(!data) throw new Error('未找到该股票数据');
     currentData = data;
