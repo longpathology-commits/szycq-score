@@ -32,7 +32,7 @@ export default async (request, context) => {
   try {
     if (request.method === 'GET') {
       let data = null;
-      try { data = await store.get(KEY, { type: 'json' }); } catch (e) { data = null; }
+      try { data = await store.get(KEY, { type: 'json', consistency: 'strong' }); } catch (e) { data = null; }
       if (!data) data = { watch: [], hold: [], capital: null, updatedAt: null };
       return new Response(JSON.stringify(data), { headers });
     }
