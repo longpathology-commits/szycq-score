@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202608132310'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202608141015'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -1039,27 +1039,28 @@ async function refreshWatchPrices(){
   };
 })();
 
-// ----- 标记框 云端备份/恢复（存服务器，换网址/清缓存不丢） -----
+// ----- 标记框 云端备份/恢复（Netlify Function + Blobs，点一下即存，无需发助手） -----
 (function(){
-  var CLOUD = 'data/backup/cloud_backup.json';
-  function copyText(txt){
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).then(function(){ alert('已复制备份数据，请粘贴到与助手的对话中，助手会帮你存到云端'); },
-        function(){ fallback(txt); });
-    } else fallback(txt);
-  }
-  function fallback(txt){ var ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); alert('已复制备份数据，请粘贴到与助手的对话中'); }catch(e){ prompt('复制下面内容发给助手：', txt); } ta.remove(); }
+  var CLOUD_API = '/.netlify/functions/backup';
   var backupBtn = document.getElementById('watch-cloud-backup');
   if(backupBtn) backupBtn.onclick = function(){
-    var data = { type:'full', watch: WS.getWatch(), hold: WS.getHold(), capital: WS.getCapital(), updatedAt: new Date().toISOString() };
-    copyText(JSON.stringify(data, null, 2));
+    var data = { watch: WS.getWatch(), hold: WS.getHold(), capital: WS.getCapital() };
+    var old = backupBtn.textContent;
+    backupBtn.disabled = true; backupBtn.textContent = '备份中…';
+    fetch(CLOUD_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) })
+      .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d }; }); })
+      .then(function(res){
+        if(res.ok && res.d && res.d.ok) alert('已备份到云端（标记/持股/资金已保存，时间 ' + (res.d.updatedAt || '') + '）');
+        else alert('备份失败：' + ((res.d && res.d.error) || '未知错误'));
+      })
+      .catch(function(e){ alert('备份失败：' + e.message); })
+      .finally(function(){ backupBtn.disabled = false; backupBtn.textContent = old; });
   };
   var restoreBtn = document.getElementById('watch-cloud-restore');
   if(restoreBtn) restoreBtn.onclick = function(){
-    fetch(CLOUD, { cache:'no-cache' }).then(function(r){ if(!r.ok) throw new Error('云端暂无备份'); return r.json(); })
+    fetch(CLOUD_API, { cache:'no-cache' }).then(function(r){ if(!r.ok) throw new Error('云端暂无备份'); return r.json(); })
       .then(function(obj){
-        var arr = Array.isArray(obj) ? obj : (obj.data || obj.watch);
+        var arr = Array.isArray(obj) ? obj : (obj.watch || obj.data || []);
         if(!Array.isArray(arr)) throw new Error('云端备份格式不对');
         if(!confirm('将用云端备份覆盖当前标记框（' + arr.length + ' 条），确定？')) return;
         WS.setWatch(arr); renderWatch();

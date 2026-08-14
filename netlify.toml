@@ -1,9 +1,12 @@
-# Netlify 静态部署配置（拖拽部署时可选；连 Git 部署时必读）
+# Netlify 部署配置（连 Git 自动部署时生效）
 [build]
   publish = "."
-  command = ""
+  command = "npm install"
 
-# 数据桶缓存 1 小时，根文件不缓存（便于更新后即时生效）
+[functions]
+  directory = "netlify/functions"
+
+# 数据桶缓存 1 小时，根文件不缓存（更新后即时生效）
 [[headers]]
   for = "/data/*"
   [headers.values]
