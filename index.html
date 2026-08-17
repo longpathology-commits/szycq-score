@@ -240,6 +240,27 @@
   .modal-actions{display:flex;justify-content:flex-end;gap:10px}
   .modal-actions .mini-btn{padding:6px 16px;font-size:13px}
 
+  /* ===== ROCE 公司入口 + 汇总弹窗 ===== */
+  .area-board{display:flex;flex-direction:column;gap:10px}
+  .roce-entry{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;border:1px solid var(--border);border-radius:9px;cursor:pointer;background:linear-gradient(90deg,#eef3ff,#f6f0ff);transition:all .15s}
+  .roce-entry:hover{border-color:var(--primary);box-shadow:0 2px 10px rgba(59,111,240,.18)}
+  .roce-entry-name{font-weight:600;font-size:14px;color:var(--text)}
+  .roce-entry-count{font-weight:800;font-size:22px;color:var(--primary);font-variant-numeric:tabular-nums}
+  .roce-entry-sub{font-size:11px;color:var(--muted);margin-top:7px}
+  .roce-modal-box{width:580px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column}
+  .roce-list{overflow-y:auto;margin:8px 0;flex:1;display:flex;flex-direction:column;gap:6px;padding-right:2px}
+  .roce-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s}
+  .roce-row:hover{border-color:var(--primary);background:var(--primary-soft)}
+  .roce-row .ro-name{flex:1;min-width:0}
+  .roce-row .ro-name strong{font-size:13px;font-weight:600}
+  .roce-row .ro-code{color:var(--muted);font-size:11px;margin-left:6px}
+  .roce-row .ro-stats{font-size:11px;color:var(--muted);white-space:nowrap}
+  .roce-row .ro-sc{font-weight:700;color:var(--primary);font-size:16px;min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .roce-row .ro-exclude{margin-left:8px;padding:4px 11px;border:1px solid #f0c2c2;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:#b42318;white-space:nowrap}
+  .roce-row .ro-exclude:hover{background:#fde2e2}
+  .roce-modal-foot{display:flex;justify-content:space-between;gap:10px;margin-top:6px}
+  .roce-empty{font-size:12px;color:var(--muted);text-align:center;padding:24px 0}
+
 </style>
 </head>
 <body>
@@ -273,14 +294,25 @@
     </div>
     <div id="search-results" style="position:relative"></div>
     <div class="rank-result" id="rank-result"></div>
-    <div class="empty" id="hint" style="margin-top:8px">输入后自动抓取实时价生成 7 因子评分（实时价来自腾讯行情）；历史百分位 / ROCE / 净现金 / 股息率基于已采集的全市场快照（每日收盘后刷新）。</div>
   </div>
 
-  <!-- ===== 左列：评分前10 ===== -->
-  <div class="panel area-board">
-    <h3><input id="board-jump" class="board-jump" type="number" min="1" max="5002" placeholder="跳至排名" autocomplete="off"><span class="h3-right"><a href="all.html" class="tool-btn primary" style="text-decoration:none">全部</a> <a href="hold.html" class="tool-btn" style="text-decoration:none">持股框</a> <span class="meta">日终快照</span></span></h3>
-    <div class="meta" style="font-size:11px;margin-bottom:8px">每日收盘后自动刷新 · 点击查看实时详情 · 向下滚动看更多</div>
-    <div id="board-top10"></div>
+  <!-- ===== 左列：ROCE 公司 + 评分前10 ===== -->
+  <div class="area-board">
+    <!-- ROCE > 20% 公司入口 -->
+    <div class="panel" id="roce-panel">
+      <h3>ROCE 公司 <span class="meta">近 4 年平均 ROCE &gt; 20%</span></h3>
+      <div class="roce-entry" id="roce-entry">
+        <span class="roce-entry-name">ROCE &gt; 20% 公司汇总</span>
+        <span class="roce-entry-count" id="roce-count">—</span>
+      </div>
+      <div class="roce-entry-sub">点击查看全部 · 可逐个「剔除」</div>
+    </div>
+    <!-- 评分前10 -->
+    <div class="panel" id="board-panel">
+      <h3><input id="board-jump" class="board-jump" type="number" min="1" max="5002" placeholder="跳至排名" autocomplete="off"><span class="h3-right"><a href="all.html" class="tool-btn primary" style="text-decoration:none">全部</a> <a href="hold.html" class="tool-btn" style="text-decoration:none">持股框</a> <span class="meta">日终快照</span></span></h3>
+      <div class="meta" style="font-size:11px;margin-bottom:8px">每日收盘后自动刷新 · 点击查看实时详情 · 向下滚动看更多</div>
+      <div id="board-top10"></div>
+    </div>
   </div>
 
   <!-- ===== 右侧：flex列紧密堆叠 ===== -->
@@ -377,14 +409,27 @@
       <label>买入价</label>
       <input type="number" step="0.01" min="0" id="buy-price-input" placeholder="例如 12.34">
     </div>
-    <div class="modal-actions">
-      <button class="mini-btn" id="buy-cancel">取消</button>
-      <button class="mini-btn primary" id="buy-confirm">确认买入</button>
+  <div class="modal-actions">
+    <button class="mini-btn" id="buy-cancel">取消</button>
+    <button class="mini-btn primary" id="buy-confirm">确认买入</button>
+  </div>
+  </div>
+</div>
+
+<!-- ROCE > 20% 公司汇总弹窗 -->
+<div id="roce-modal" class="modal-mask" style="display:none">
+  <div class="modal-box roce-modal-box">
+    <div class="modal-title">ROCE &gt; 20% 公司 <span id="roce-modal-count" class="count-badge">0</span></div>
+    <div class="modal-sub">点击公司查看其 7 因子评分详情；右侧「剔除」后该公司不再出现在本汇总（已保存在本地，刷新/换设备不丢失）。</div>
+    <div id="roce-list" class="roce-list"></div>
+    <div class="roce-modal-foot">
+      <button class="mini-btn" id="roce-restore">恢复全部已剔除</button>
+      <button class="mini-btn primary" id="roce-close">关闭</button>
     </div>
   </div>
 </div>
 
-<script src="watchstore.js?v=202608171718"></script>
-<script src="app.js?v=202608171718"></script>
+<script src="watchstore.js?v=202608172035"></script>
+<script src="app.js?v=202608172035"></script>
 </body>
 </html>
