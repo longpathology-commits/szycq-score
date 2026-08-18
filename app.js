@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202608172035'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202608181823'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -842,6 +842,15 @@ function renderWatch(){
   const root = document.getElementById('watch-list');
   if(!root) return;
   const list = sortWatchList(WS.getWatch());
+  // 重建前：若用户正聚焦于标记框内某输入控件，记录焦点 + 光标，重建后恢复，
+  // 避免任何重建（加星/买入/导入/云端恢复）打断正在输入的备注或目标买入价
+  let _focus = null;
+  const _ae = document.activeElement;
+  if(_ae && root.contains(_ae) && _ae.dataset && _ae.dataset.code){
+    const cls = _ae.className || '';
+    _focus = { code: _ae.dataset.code, isNote: cls.indexOf('wc-note') >= 0, isTb: cls.indexOf('tb-input') >= 0,
+               start: _ae.selectionStart, end: _ae.selectionEnd };
+  }
   const cntEl = document.getElementById('watch-count');
   if(cntEl) cntEl.textContent = list.length;
   if(!list.length){
@@ -881,11 +890,14 @@ function renderWatch(){
   root.querySelectorAll('.wc-note').forEach(ta=>{
     const it = list.find(x=>x.code===ta.dataset.code);
     ta.value = (it && it.note) || '';
-    ta.addEventListener('change', ()=>{
+    const save = ()=>{
       const code = ta.dataset.code;
       const a = WS.getWatch(); const it2 = a.find(x=>x.code===code);
       if(it2){ it2.note = ta.value; WS.setWatch(a); }
-    });
+    };
+    // 输入即存（input），不必等失焦 —— 即便重建也保留最新文字
+    ta.addEventListener('input', save);
+    ta.addEventListener('change', save);
   });
   root.querySelectorAll('button[data-act="buy"]').forEach(b=>{
     b.onclick = ()=>{
@@ -895,12 +907,23 @@ function renderWatch(){
       openBuyModal(code, (it && it.name) || code, def);
     };
   });
+  // 恢复焦点 + 光标（若重建前正在输入）
+  if(_focus){
+    const sel = _focus.isNote
+      ? Array.from(root.querySelectorAll('.wc-note')).find(e=>e.dataset.code===_focus.code)
+      : Array.from(root.querySelectorAll('.tb-input')).find(e=>e.dataset.code===_focus.code);
+    if(sel){ sel.focus(); try{ sel.setSelectionRange(_focus.start, _focus.end); }catch(e){} }
+  }
 }
 
 // 实时价刷新后，仅移动现有 DOM 节点而不重建（保留输入框焦点），让提醒中的公司自动前移
 function reorderWatchDom(){
   const grid = document.querySelector('#watch-list .watch-grid');
   if(!grid) return;
+  // 用户正聚焦于标记框内的输入控件（备注 / 目标买入价）时不重排，
+  // 避免每 15s 的价格刷新移动 DOM 节点、打断中文输入法组合（"写着就断掉"），也保住光标
+  const ae = document.activeElement;
+  if(ae && grid.contains(ae) && ae.dataset && ae.dataset.code && /wc-note|tb-input/.test(ae.className || '')) return;
   const order = WS.getWatch();
   const idx = {};
   order.forEach((it, i) => { idx[it.code] = i; });
