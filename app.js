@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202608181823'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202608190824'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -825,12 +825,13 @@ function updateStar(){
 let watchPrices = {};   // code -> 现价（标记框实时价缓存）
 window.__renderWatch = renderWatch;   // 供持股框页面"已卖出"后回写标记框
 
-// 标记框排序：① 正在浏览的公司永远第一行；② 已达目标买入价（提醒状态）的公司置前；③ 其余按原顺序
+// 标记框排序：① 特殊关注（★）永远最前；② 正在浏览的公司；③ 已达目标买入价（提醒状态）；④ 其余按原顺序
 function watchRank(it){
-  if(currentCode && it.code === currentCode) return 0;           // 正在浏览
+  if(it.star) return 0;                                           // 特殊关注 → 最前
+  if(currentCode && it.code === currentCode) return 1;           // 正在浏览
   const price = watchPrices[it.code];
-  if(it.targetBuy != null && price != null && price <= it.targetBuy) return 1; // 提醒状态
-  return 2;                                                       // 其余
+  if(it.targetBuy != null && price != null && price <= it.targetBuy) return 2; // 提醒状态
+  return 3;                                                       // 其余
 }
 function sortWatchList(list){
   return list.map((it, i) => ({ it: it, i: i, r: watchRank(it) }))
@@ -863,6 +864,7 @@ function renderWatch(){
     const reach = (it.targetBuy != null && price != null && price <= it.targetBuy);
     html += `<div class="watch-card" data-code="${it.code}">
       <div class="wc-top">
+        <button class="wc-star ${it.star?'on':''}" data-act="star" data-code="${it.code}" title="特殊关注：点一下切换，★ 会排到标记框最前">${it.star?'★':'☆'}</button>
         <div class="wc-name">
           <strong>${it.name}</strong>
           <span class="code-sm">${it.code.toUpperCase()}</span>
@@ -907,6 +909,13 @@ function renderWatch(){
       openBuyModal(code, (it && it.name) || code, def);
     };
   });
+  root.querySelectorAll('.wc-star').forEach(s=>{
+    s.addEventListener('click', ()=>{
+      const code = s.dataset.code;
+      const a = WS.getWatch(); const it2 = a.find(x=>x.code===code);
+      if(it2){ it2.star = !it2.star; WS.setWatch(a); renderWatch(); }
+    });
+  });
   // 恢复焦点 + 光标（若重建前正在输入）
   if(_focus){
     const sel = _focus.isNote
@@ -931,11 +940,12 @@ function reorderWatchDom(){
   if(!cards.length) return;
   const rankOf = function(c){
     const code = c.dataset.code;
-    if(currentCode && code === currentCode) return 0;
     const it = order.find(function(x){ return x.code === code; });
+    if(it && it.star) return 0;                                  // 特殊关注 → 最前
+    if(currentCode && code === currentCode) return 1;
     const price = watchPrices[code];
-    if(it && it.targetBuy != null && price != null && price <= it.targetBuy) return 1;
-    return 2;
+    if(it && it.targetBuy != null && price != null && price <= it.targetBuy) return 2;
+    return 3;
   };
   cards.sort(function(a, b){ return rankOf(a) - rankOf(b) || (idx[a.dataset.code] || 0) - (idx[b.dataset.code] || 0); });
   cards.forEach(function(c){ grid.appendChild(c); }); // appendChild 移动节点，保持排序
