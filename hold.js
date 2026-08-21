@@ -13,11 +13,12 @@
   }
   async function fetchKline(code){
     const today = new Date().toISOString().slice(0,10);
-    const defs = {
-      daily:   { period:'day',   start:'2024-01-01', count:800, key:'qfqday' },
-      weekly:  { period:'week',  start:'2022-01-01', count:400, key:'qfqweek' },
-      monthly: { period:'month', start:'2020-01-01', count:200, key:'qfqmonth' }
-    };
+  const shift = (y,m)=>{ const d=new Date(); d.setFullYear(d.getFullYear()-y); d.setMonth(d.getMonth()-m); return d.toISOString().slice(0,10); };
+  const defs = {
+    daily:   { period:'day',   start: shift(0,3), count:120, key:'qfqday' },
+    weekly:  { period:'week',  start: shift(1,0), count:60,  key:'qfqweek' },
+    monthly: { period:'month', start: shift(5,0), count:60,  key:'qfqmonth' }
+  };
     const out = { daily:[], weekly:[], monthly:[] };
     await Promise.all(Object.keys(defs).map(async (p) => {
       const d = defs[p];

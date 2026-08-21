@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202608190824'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202608212326'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -264,10 +264,11 @@ function attachRankSearch(){
 // ----- 选中公司 -----
 async function fetchKline(code){
   const today = new Date().toISOString().slice(0,10);
+  const shift = (y,m)=>{ const d=new Date(); d.setFullYear(d.getFullYear()-y); d.setMonth(d.getMonth()-m); return d.toISOString().slice(0,10); };
   const defs = {
-    daily:   { period:'day',   start:'2024-01-01', count:800, key:'qfqday' },
-    weekly:  { period:'week',  start:'2022-01-01', count:400, key:'qfqweek' },
-    monthly: { period:'month', start:'2020-01-01', count:200, key:'qfqmonth' }
+    daily:   { period:'day',   start: shift(0,3), count:120, key:'qfqday' },
+    weekly:  { period:'week',  start: shift(1,0), count:60,  key:'qfqweek' },
+    monthly: { period:'month', start: shift(5,0), count:60,  key:'qfqmonth' }
   };
   const out = { daily:[], weekly:[], monthly:[] };
   await Promise.all(Object.keys(defs).map(async (p) => {
