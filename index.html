@@ -265,6 +265,14 @@
   .roce-row .ro-tier.tier-p2{background:#fdf0e6;color:#b9690f;border:1px solid #f3d8b8}
   .roce-row .ro-tier.tier-p3{background:#eaf2fd;color:#2f6bd8;border:1px solid #c7ddf6}
   .roce-row .ro-tier.tier-p4{background:#f1f2f4;color:#7a8390;border:1px solid #dde0e4}
+  .roce-row .ro-moat{display:inline-block;margin-left:6px;padding:1px 7px;font-size:10px;line-height:1.5;border-radius:10px;font-weight:600;vertical-align:middle;white-space:nowrap}
+  .roce-row .ro-moat.moat-strong{background:#eafaf0;color:#1c7a3e;border:1px solid #b6e3c4}
+  .roce-row .ro-moat.moat-mid{background:#eef4ff;color:#2f6bd8;border:1px solid #c7ddf6}
+  .roce-row .ro-moat.moat-weak{background:#f5f6f8;color:#5a6677;border:1px solid #e0e3e8}
+  .roce-row .ro-moat.moat-thin{background:#fbf7ef;color:#9a7b2e;border:1px solid #ecdcb4}
+  .roce-row .ro-moat.moat-decay{background:#fdeaea;color:#c0252b;border:1px solid #f3c2c2}
+  .roce-row .ro-moat.moat-none{background:#f1f2f4;color:#7a8390;border:1px solid #dde0e4}
+  .roce-row .ro-fw-moat{color:#9a3b1e;background:#fdf3ee;border:1px dashed #ecc9b4;border-radius:7px;padding:7px 10px;margin-bottom:7px;line-height:1.6}
   .roce-row .ro-fps{font-weight:800;color:#c0252b;font-size:15px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
   .roce-row .ro-fps::after{content:'分';font-size:9px;font-weight:600;color:var(--muted);margin-left:1px}
   .roce-row .ro-stats{font-size:11px;color:var(--muted);white-space:nowrap}
@@ -439,7 +447,7 @@
 <div id="roce-modal" class="modal-mask" style="display:none">
   <div class="modal-box roce-modal-box">
     <div class="modal-title">ROCE &gt; 20% 公司 <span id="roce-modal-count" class="count-badge">0</span></div>
-    <div class="modal-sub">点击公司查看其 7 因子评分详情；右侧「剔除」后该公司不再出现在本汇总（已保存在本地，刷新/换设备不丢失）。每家含分行业前瞻分析；FPS 为前瞻优先级分，越大越值得优先学习。</div>
+    <div class="modal-sub">点击公司查看其 7 因子评分详情；右侧「剔除」后该公司不再出现在本汇总（已保存在本地，刷新/换设备不丢失）。每家含分行业前瞻分析；FPS 为前瞻优先级分，越大越值得优先学习；🛡=护城河持久度（强/中/弱/薄/衰减/无）。</div>
     <div class="roce-sortbar"><span class="roce-sortbar-label">排序</span><button class="mini-btn" id="roce-sort">按 ROCE ▾</button></div>
     <div id="roce-list" class="roce-list"></div>
     <div class="roce-modal-foot">
@@ -449,7 +457,7 @@
   </div>
 </div>
 
-<script src="watchstore.js?v=202609111752"></script>
-<script src="app.js?v=202609111752"></script>
+<script src="watchstore.js?v=202609112300"></script>
+<script src="app.js?v=202609112300"></script>
 </body>
 </html>

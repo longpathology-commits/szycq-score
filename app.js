@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202609111752'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609112300'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -1015,6 +1015,7 @@ let roceExclude = new Set();     // 已剔除的 code（小写）
 let roceSyn = {};                // grpKey -> { name, syn } 行业框架（主要指标+主要矛盾+前瞻定性）
 let roceSortFps = false;         // ROCE 弹窗排序：false=按ROCE，true=按前瞻优先级(FPS)
 function tierClass(t){ if(t && t.indexOf('P1')===0) return 'tier-p1'; if(t && t.indexOf('P2')===0) return 'tier-p2'; if(t && t.indexOf('P3')===0) return 'tier-p3'; return 'tier-p4'; }
+function moatClass(m){ return m==='强'?'moat-strong':m==='中'?'moat-mid':m==='弱'?'moat-weak':m==='薄'?'moat-thin':m==='衰减'?'moat-decay':'moat-none'; }
 
 function loadRoceExclude(){
   try {
@@ -1067,7 +1068,7 @@ function openRoceModal(){
     list.innerHTML = vis.map(e => `
       <div class="roce-row" data-code="${e.code}">
         <div class="ro-main">
-          <div class="ro-name"><strong>${e.name}</strong><span class="ro-code">${e.code.toUpperCase()}</span>${e.grp?`<span class="ro-grp">${e.grp}</span>`:''}${e.tier?`<span class="ro-tier ${tierClass(e.tier)}">${e.tier}</span>`:''}</div>
+          <div class="ro-name"><strong>${e.name}</strong><span class="ro-code">${e.code.toUpperCase()}</span>${e.grp?`<span class="ro-grp">${e.grp}</span>`:''}${e.tier?`<span class="ro-tier ${tierClass(e.tier)}">${e.tier}</span>`:''}${e.moatTag?`<span class="ro-moat ${moatClass(e.moatTag)}" title="${(e.moatNote||'').replace(/"/g,'&quot;')}">🛡${e.moatTag}</span>`:''}</div>
           <div class="ro-stats">ROCE ${e.roce!=null?e.roce.toFixed(1):'–'}% · 评分 ${e.total}${e.soe?` · ${e.soe}`:''}</div>
         </div>
         <button class="ro-toggle" data-code="${e.code}">前瞻▸</button>
@@ -1100,6 +1101,7 @@ function openRoceModal(){
             const e = roce20.find(x=>x.code===code);
             const syn = e && e.grpKey ? (roceSyn[e.grpKey]||{}).syn : null;
             let html = '';
+            if(e && e.moatNote) html += `<div class="ro-fw-moat">🛡️ 护城河（${e.moatTag||'—'}）：${e.moatNote}</div>`;
             if(e && e.reason) html += `<div class="ro-fw-reason">📌 ${e.reason}</div>`;
             if(syn) html += `<div class="ro-fw-syn">${syn}</div>`;
             if(e && e.fw) html += `<div class="ro-fw-item">${e.fw}</div>`;
