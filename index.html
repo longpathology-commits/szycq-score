@@ -258,6 +258,15 @@
   .roce-row .ro-name strong{font-size:13px;font-weight:600}
   .roce-row .ro-code{color:var(--muted);font-size:11px;margin-left:6px}
   .roce-row .ro-grp{display:inline-block;margin-left:7px;padding:1px 7px;font-size:10px;line-height:1.5;border-radius:10px;background:#eef3ff;color:var(--primary);border:1px solid #d6e0fb;vertical-align:middle;white-space:nowrap}
+  .roce-sortbar{display:flex;align-items:center;gap:8px;margin:2px 0}
+  .roce-sortbar-label{font-size:12px;color:var(--muted)}
+  .roce-row .ro-tier{display:inline-block;margin-left:7px;padding:1px 7px;font-size:10px;line-height:1.5;border-radius:10px;font-weight:600;vertical-align:middle;white-space:nowrap}
+  .roce-row .ro-tier.tier-p1{background:#fdeaea;color:#c0252b;border:1px solid #f3c2c2}
+  .roce-row .ro-tier.tier-p2{background:#fdf0e6;color:#b9690f;border:1px solid #f3d8b8}
+  .roce-row .ro-tier.tier-p3{background:#eaf2fd;color:#2f6bd8;border:1px solid #c7ddf6}
+  .roce-row .ro-tier.tier-p4{background:#f1f2f4;color:#7a8390;border:1px solid #dde0e4}
+  .roce-row .ro-fps{font-weight:800;color:#c0252b;font-size:15px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+  .roce-row .ro-fps::after{content:'分';font-size:9px;font-weight:600;color:var(--muted);margin-left:1px}
   .roce-row .ro-stats{font-size:11px;color:var(--muted);white-space:nowrap}
   .roce-row .ro-toggle{margin-left:2px;padding:4px 10px;border:1px solid #cfe0c4;background:#f3faef;border-radius:6px;cursor:pointer;font-size:12px;color:#3a7d28;white-space:nowrap}
   .roce-row .ro-toggle:hover{background:#e7f5df}
@@ -265,6 +274,7 @@
   .roce-row .ro-exclude{margin-left:2px;padding:4px 11px;border:1px solid #f0c2c2;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:#b42318;white-space:nowrap}
   .roce-row .ro-exclude:hover{background:#fde2e2}
   .roce-row .ro-fw{flex-basis:100%;margin-top:4px;padding:9px 11px;background:#fbfcfe;border:1px dashed var(--border);border-radius:7px;font-size:12px;line-height:1.7;color:#36404f}
+  .roce-row .ro-fw-reason{background:#fff7e8;border:1px solid #f0d9a8;border-radius:6px;padding:6px 9px;margin-bottom:7px;color:#7a5410;font-weight:600}
   .roce-row .ro-fw-syn{color:#5a6677;margin-bottom:6px}
   .roce-row .ro-fw-item{color:#222;border-left:3px solid var(--primary);padding-left:8px}
   .roce-modal-foot{display:flex;justify-content:space-between;gap:10px;margin-top:6px}
@@ -429,7 +439,8 @@
 <div id="roce-modal" class="modal-mask" style="display:none">
   <div class="modal-box roce-modal-box">
     <div class="modal-title">ROCE &gt; 20% 公司 <span id="roce-modal-count" class="count-badge">0</span></div>
-    <div class="modal-sub">点击公司查看其 7 因子评分详情；右侧「剔除」后该公司不再出现在本汇总（已保存在本地，刷新/换设备不丢失）。</div>
+    <div class="modal-sub">点击公司查看其 7 因子评分详情；右侧「剔除」后该公司不再出现在本汇总（已保存在本地，刷新/换设备不丢失）。每家含分行业前瞻分析；FPS 为前瞻优先级分，越大越值得优先学习。</div>
+    <div class="roce-sortbar"><span class="roce-sortbar-label">排序</span><button class="mini-btn" id="roce-sort">按 ROCE ▾</button></div>
     <div id="roce-list" class="roce-list"></div>
     <div class="roce-modal-foot">
       <button class="mini-btn" id="roce-restore">恢复全部已剔除</button>
@@ -438,7 +449,7 @@
   </div>
 </div>
 
-<script src="watchstore.js?v=202609111745"></script>
-<script src="app.js?v=202609111745"></script>
+<script src="watchstore.js?v=202609111752"></script>
+<script src="app.js?v=202609111752"></script>
 </body>
 </html>

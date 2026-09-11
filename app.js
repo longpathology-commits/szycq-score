@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202609111745'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609111752'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -1013,6 +1013,8 @@ const ROCE_EXCLUDE_KEY = 'szcq_roce_exclude_v1';
 let roce20 = [];                 // 全量（ROCE>20，未剔除）
 let roceExclude = new Set();     // 已剔除的 code（小写）
 let roceSyn = {};                // grpKey -> { name, syn } 行业框架（主要指标+主要矛盾+前瞻定性）
+let roceSortFps = false;         // ROCE 弹窗排序：false=按ROCE，true=按前瞻优先级(FPS)
+function tierClass(t){ if(t && t.indexOf('P1')===0) return 'tier-p1'; if(t && t.indexOf('P2')===0) return 'tier-p2'; if(t && t.indexOf('P3')===0) return 'tier-p3'; return 'tier-p4'; }
 
 function loadRoceExclude(){
   try {
@@ -1051,20 +1053,26 @@ function openRoceModal(){
   const m = document.getElementById('roce-modal');
   const list = document.getElementById('roce-list');
   if(!m || !list) return;
-  const vis = roceVisible();
+  let vis = roceVisible();
+  vis = vis.slice().sort(roceSortFps
+    ? (a,b)=> (b.fps-a.fps) || (b.roce-a.roce)
+    : (a,b)=> (b.roce-a.roce) || (b.total-a.total));
   const cnt = document.getElementById('roce-modal-count');
   if(cnt) cnt.textContent = vis.length;
+  const sortBtn = document.getElementById('roce-sort');
+  if(sortBtn) sortBtn.textContent = roceSortFps ? '按 前瞻优先级 ▾' : '按 ROCE ▾';
   if(!vis.length){
     list.innerHTML = '<div class="roce-empty">暂无可显示的公司（已全部剔除）</div>';
   } else {
     list.innerHTML = vis.map(e => `
       <div class="roce-row" data-code="${e.code}">
         <div class="ro-main">
-          <div class="ro-name"><strong>${e.name}</strong><span class="ro-code">${e.code.toUpperCase()}</span>${e.grp?`<span class="ro-grp">${e.grp}</span>`:''}</div>
+          <div class="ro-name"><strong>${e.name}</strong><span class="ro-code">${e.code.toUpperCase()}</span>${e.grp?`<span class="ro-grp">${e.grp}</span>`:''}${e.tier?`<span class="ro-tier ${tierClass(e.tier)}">${e.tier}</span>`:''}</div>
           <div class="ro-stats">ROCE ${e.roce!=null?e.roce.toFixed(1):'–'}% · 评分 ${e.total}${e.soe?` · ${e.soe}`:''}</div>
         </div>
         <button class="ro-toggle" data-code="${e.code}">前瞻▸</button>
-        <div class="ro-sc">${e.total}</div>
+        <div class="ro-fps" title="前瞻优先级分 FPS（0~100）">${e.fps!=null?e.fps:'–'}</div>
+        <div class="ro-sc" title="结构分（7因子）">${e.total}</div>
         <button class="ro-exclude" data-code="${e.code}">剔除</button>
         <div class="ro-fw" data-code="${e.code}" style="display:none"></div>
       </div>
@@ -1092,6 +1100,7 @@ function openRoceModal(){
             const e = roce20.find(x=>x.code===code);
             const syn = e && e.grpKey ? (roceSyn[e.grpKey]||{}).syn : null;
             let html = '';
+            if(e && e.reason) html += `<div class="ro-fw-reason">📌 ${e.reason}</div>`;
             if(syn) html += `<div class="ro-fw-syn">${syn}</div>`;
             if(e && e.fw) html += `<div class="ro-fw-item">${e.fw}</div>`;
             fw.innerHTML = html;
@@ -1117,6 +1126,8 @@ function attachRoce(){
   if(entry) entry.onclick = openRoceModal;
   const close = document.getElementById('roce-close');
   if(close) close.onclick = closeRoceModal;
+  const sortBtn = document.getElementById('roce-sort');
+  if(sortBtn) sortBtn.onclick = () => { roceSortFps = !roceSortFps; openRoceModal(); };
   const restore = document.getElementById('roce-restore');
   if(restore) restore.onclick = () => { if(confirm('恢复全部已剔除的 ROCE 公司？')){ restoreRoceAll(); openRoceModal(); } };
   const mask = document.getElementById('roce-modal');
