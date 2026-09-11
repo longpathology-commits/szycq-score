@@ -250,17 +250,23 @@
   .roce-entry-name{font-weight:600;font-size:14px;color:var(--text)}
   .roce-entry-count{font-weight:800;font-size:22px;color:var(--primary);font-variant-numeric:tabular-nums}
   .roce-entry-sub{font-size:11px;color:var(--muted);margin-top:7px}
-  .roce-modal-box{width:580px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column}
+  .roce-modal-box{width:620px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column}
   .roce-list{overflow-y:auto;margin:8px 0;flex:1;display:flex;flex-direction:column;gap:6px;padding-right:2px}
-  .roce-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s}
+  .roce-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s}
   .roce-row:hover{border-color:var(--primary);background:var(--primary-soft)}
-  .roce-row .ro-name{flex:1;min-width:0}
+  .roce-row .ro-main{flex:1;min-width:0}
   .roce-row .ro-name strong{font-size:13px;font-weight:600}
   .roce-row .ro-code{color:var(--muted);font-size:11px;margin-left:6px}
+  .roce-row .ro-grp{display:inline-block;margin-left:7px;padding:1px 7px;font-size:10px;line-height:1.5;border-radius:10px;background:#eef3ff;color:var(--primary);border:1px solid #d6e0fb;vertical-align:middle;white-space:nowrap}
   .roce-row .ro-stats{font-size:11px;color:var(--muted);white-space:nowrap}
+  .roce-row .ro-toggle{margin-left:2px;padding:4px 10px;border:1px solid #cfe0c4;background:#f3faef;border-radius:6px;cursor:pointer;font-size:12px;color:#3a7d28;white-space:nowrap}
+  .roce-row .ro-toggle:hover{background:#e7f5df}
   .roce-row .ro-sc{font-weight:700;color:var(--primary);font-size:16px;min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
-  .roce-row .ro-exclude{margin-left:8px;padding:4px 11px;border:1px solid #f0c2c2;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:#b42318;white-space:nowrap}
+  .roce-row .ro-exclude{margin-left:2px;padding:4px 11px;border:1px solid #f0c2c2;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:#b42318;white-space:nowrap}
   .roce-row .ro-exclude:hover{background:#fde2e2}
+  .roce-row .ro-fw{flex-basis:100%;margin-top:4px;padding:9px 11px;background:#fbfcfe;border:1px dashed var(--border);border-radius:7px;font-size:12px;line-height:1.7;color:#36404f}
+  .roce-row .ro-fw-syn{color:#5a6677;margin-bottom:6px}
+  .roce-row .ro-fw-item{color:#222;border-left:3px solid var(--primary);padding-left:8px}
   .roce-modal-foot{display:flex;justify-content:space-between;gap:10px;margin-top:6px}
   .roce-empty{font-size:12px;color:var(--muted);text-align:center;padding:24px 0}
 
@@ -308,7 +314,7 @@
         <span class="roce-entry-name">ROCE &gt; 20% 公司汇总</span>
         <span class="roce-entry-count" id="roce-count">—</span>
       </div>
-      <div class="roce-entry-sub">点击查看全部 · 可逐个「剔除」</div>
+      <div class="roce-entry-sub">点击查看全部 · 每家含分行业前瞻分析 · 可逐个「剔除」</div>
     </div>
     <!-- 评分前10 -->
     <div class="panel" id="board-panel">
@@ -432,7 +438,7 @@
   </div>
 </div>
 
-<script src="watchstore.js?v=202608212326"></script>
-<script src="app.js?v=202608212326"></script>
+<script src="watchstore.js?v=202609111738"></script>
+<script src="app.js?v=202609111738"></script>
 </body>
 </html>

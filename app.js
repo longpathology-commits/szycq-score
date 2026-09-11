@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202608212326'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609111738'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -1012,6 +1012,7 @@ async function refreshWatchPrices(){
 const ROCE_EXCLUDE_KEY = 'szcq_roce_exclude_v1';
 let roce20 = [];                 // 全量（ROCE>20，未剔除）
 let roceExclude = new Set();     // 已剔除的 code（小写）
+let roceSyn = {};                // grpKey -> { name, syn } 行业框架（主要指标+主要矛盾+前瞻定性）
 
 function loadRoceExclude(){
   try {
@@ -1036,6 +1037,10 @@ async function loadRoce(){
   } catch(e){
     console.warn('roce20 加载失败：', e.message);
   }
+  // 行业框架（主要指标+主要矛盾+前瞻定性），供每家「前瞻」展开
+  try {
+    roceSyn = await fetch(dataUrl('roce20_syn.json'), { cache:'no-cache' }).then(r=> r.ok ? r.json() : {});
+  } catch(e){ roceSyn = {}; }
   updateRoceCount();
 }
 function updateRoceCount(){
@@ -1054,18 +1059,45 @@ function openRoceModal(){
   } else {
     list.innerHTML = vis.map(e => `
       <div class="roce-row" data-code="${e.code}">
-        <div class="ro-name"><strong>${e.name}</strong><span class="ro-code">${e.code.toUpperCase()}</span></div>
-        <div class="ro-stats">ROCE ${e.roce!=null?e.roce.toFixed(1):'–'}% · 评分 ${e.total}${e.soe?` · ${e.soe}`:''}</div>
+        <div class="ro-main">
+          <div class="ro-name"><strong>${e.name}</strong><span class="ro-code">${e.code.toUpperCase()}</span>${e.grp?`<span class="ro-grp">${e.grp}</span>`:''}</div>
+          <div class="ro-stats">ROCE ${e.roce!=null?e.roce.toFixed(1):'–'}% · 评分 ${e.total}${e.soe?` · ${e.soe}`:''}</div>
+        </div>
+        <button class="ro-toggle" data-code="${e.code}">前瞻▸</button>
         <div class="ro-sc">${e.total}</div>
         <button class="ro-exclude" data-code="${e.code}">剔除</button>
+        <div class="ro-fw" data-code="${e.code}" style="display:none"></div>
       </div>
     `).join('');
     list.querySelectorAll('.roce-row').forEach(row=>{
       const code = row.dataset.code;
       row.onclick = (ev)=>{
         if(ev.target.classList.contains('ro-exclude')) return;   // 点「剔除」不触发详情
+        if(ev.target.classList.contains('ro-toggle')) return;    // 点「前瞻」不触发详情/不收起弹窗
         selectCode(code);
         closeRoceModal();
+      };
+    });
+    list.querySelectorAll('.ro-toggle').forEach(btn=>{
+      btn.onclick = (ev)=>{
+        ev.stopPropagation();
+        const code = btn.dataset.code;
+        const row = btn.closest('.roce-row');
+        const fw = row.querySelector('.ro-fw');
+        const open = fw.style.display !== 'none';
+        if(open){ fw.style.display = 'none'; btn.textContent = '前瞻▸'; }
+        else {
+          if(!fw.dataset.filled){
+            const e = roce20.find(x=>x.code===code);
+            const syn = e && e.grpKey ? (roceSyn[e.grpKey]||{}).syn : null;
+            let html = '';
+            if(syn) html += `<div class="ro-fw-syn">${syn}</div>`;
+            if(e && e.fw) html += `<div class="ro-fw-item">${e.fw}</div>`;
+            fw.innerHTML = html;
+            fw.dataset.filled = '1';
+          }
+          fw.style.display = 'block'; btn.textContent = '前瞻▾';
+        }
       };
     });
     list.querySelectorAll('.ro-exclude').forEach(btn=>{
