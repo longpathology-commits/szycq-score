@@ -445,23 +445,26 @@ function renderScore(realtime){
     // 简化：实时股息率 ≈ annualDps / price（annualDps 已经是元/股）
     snapDiv = (d.annualDps / validPrice) * 100;
   }
-  const pePct = percentile(snapPE, d.histPE);       // 归母口径（展示/对照）
+  const pePct = percentile(snapPE, d.histPE);       // 归母TTM口径（仅对照）
   const pbPct = percentile(snapPB, d.histPB);
-  // ---- 扣非估值：估值因子以「扣非PE」为准（实时价 ÷ 扣非TTM EPS，与其自身历史分位比较）----
-  let dedPE = d.dedPE, dedPePct = d.dedPePct;
-  if(validPrice && d.dedEps>0) dedPE = validPrice/d.dedEps;
-  if(d.dedHP && d.dedHP.length>=6 && dedPE!=null) dedPePct = percentile(dedPE, d.dedHP);
-  const peScGross = scPE(pePct);
+  const peScGross = scPE(pePct), pbScGross = scPE(pbPct);
+  // ---- 前瞻口径：用实时价重算 前瞻扣非PE / 前瞻PB / 前瞻股息率（桶内 fwdEps/fwdBvps/fwdDpsEst + 前瞻口径历史）----
+  let fwdPE = d.fwdPE, fwdPB = d.fwdPB, fwdPePct = d.fwdPePct, fwdPbPct = d.fwdPbPct, fwdDivYield = d.fwdDivYield;
+  if(validPrice && d.fwdEps>0) fwdPE = validPrice/d.fwdEps;
+  if(validPrice && d.fwdBvps>0) fwdPB = validPrice/d.fwdBvps;
+  if(validPrice && d.fwdDpsEst>0) fwdDivYield = d.fwdDpsEst/validPrice*100;
+  if(d.fwdHP && d.fwdHP.length>=6 && fwdPE!=null) fwdPePct = percentile(fwdPE, d.fwdHP);
+  if(d.fwdHPB && d.fwdHPB.length>=6 && fwdPB!=null) fwdPbPct = percentile(fwdPB, d.fwdHPB);
   let peSc, peBasis;
-  if(d.dedTtm!=null){
-    if(d.dedTtm<=0){ peSc=0; peBasis='扣非亏损(不给估值分)'; }
-    else if(dedPE!=null && dedPE>100){ peSc=0; peBasis='扣非PE极高(不给估值分)'; }
-    else if(dedPePct!=null && d.dedHP && d.dedHP.length>=12){ peSc=scPE(dedPePct); peBasis='扣非PE'; }
-    else { peSc=peScGross; peBasis='归母PE(扣非历史不足)'; }
-  } else { peSc=peScGross; peBasis='归母PE(无扣非数据)'; }
-  const pbSc = scPE(pbPct);
-  // ---- 分红可持续性预警（两重：① 分红透支扣非 ② 前瞻性：扣非同比明显为负）----
-  const divScRaw = scDiv(snapDiv);
+  if(d.fwdEps!=null && d.fwdEps<=0){ peSc=0; peBasis='前瞻扣非亏损(不给估值分)'; }
+  else if(fwdPE!=null && fwdPE>100){ peSc=0; peBasis='前瞻PE极高(不给估值分)'; }
+  else if(fwdPePct!=null && d.fwdHP && d.fwdHP.length>=12){ peSc=scPE(fwdPePct); peBasis='前瞻扣非PE'; }
+  else if(d.dedEps!=null && d.dedEps<=0){ peSc=0; peBasis='扣非亏损(不给估值分)'; }
+  else if(d.dedPePct!=null && d.dedHP && d.dedHP.length>=12){ peSc=scPE(d.dedPePct); peBasis='扣非TTM PE(前瞻历史不足)'; }
+  else { peSc=peScGross; peBasis='归母PE(数据不足)'; }
+  const pbSc = (fwdPbPct!=null && d.fwdHPB && d.fwdHPB.length>=12) ? scPE(fwdPbPct) : pbScGross;
+  // ---- 前瞻股息率打分 + 可持续性折扣（① 分红透支扣非 ② 扣非同比明显为负）----
+  const divScRaw = scDiv(fwdDivYield);
   const divCands = [];
   if(d.earnWarn===1 && d.divTotal!=null && d.dedTtm!=null && d.dedTtm>0 && d.divTotal > d.dedTtm) divCands.push(8);
   if(d.dedYoY!=null && d.dedYoY<=-0.30) divCands.push(8);
@@ -484,20 +487,24 @@ function renderScore(realtime){
       if(d.ncSensitive) ncTitle += '（⚠ 两口径相差 ≥15 个百分点：含较多类金融资产/金融子公司，数值请谨慎参考）';
     }
   }
-  // ---- 估值口径提示（归母PE vs 扣非PE）----
-  const gPE = '归母PE '+(snapPE!=null?snapPE.toFixed(2):'—')+(pePct!=null?'（历史分位 '+pePct.toFixed(1)+'%）':'');
-  const dPE = '扣非PE '+(dedPE!=null?dedPE.toFixed(2):'—')+(dedPePct!=null?'（历史分位 '+dedPePct.toFixed(1)+'%）':'');
+  // ---- 估值口径提示（前瞻 vs TTM）----
+  const gPE = 'TTM归母PE '+(snapPE!=null?snapPE.toFixed(2):'—')+(pePct!=null?'（分位 '+pePct.toFixed(1)+'%）':'');
+  const fwdPEtxt = '前瞻扣非PE '+(fwdPE!=null?fwdPE.toFixed(2):'—')+(fwdPePct!=null?'（分位 '+fwdPePct.toFixed(1)+'%）':'');
   let peTitle, peLabel;
-  if(d.dedTtm!=null && d.dedTtm<=0){ peLabel='扣非估值'; peTitle='扣非TTM亏损，无法用扣非口径估值，估值分记 0；对照 '+gPE; }
-  else if(dedPE!=null && dedPE>100){ peLabel='扣非估值'; peTitle='扣非PE 过高（扣非盈利极薄），估值分记 0；对照 '+gPE; }
-  else if(peBasis.indexOf('扣非')===0){
-    peLabel='扣非PE';
-    const ratioTxt = (d.dedRatioTtm!=null) ? ('。扣非/归母='+d.dedRatioTtm.toFixed(2)+(d.dedRatioTtm<0.6?'，⚠利润含大额一次性、表观PE失真':'')) : '';
-    peTitle='以扣非PE（扣除一次性损益）为准：'+dPE+'；对照 '+gPE+ratioTxt;
-  } else { peLabel='PE 历史分位'; peTitle='扣非数据不足，回退归母口径；'+gPE; }
-  const peUseDed = peBasis.indexOf('扣非')===0;
-  const peShown = (dedPE!=null && d.dedTtm!=null && d.dedTtm>0) ? dedPE : snapPE;
-  const pePctShown = peUseDed ? dedPePct : pePct;
+  if(d.fwdEps!=null && d.fwdEps<=0){ peLabel='前瞻估值'; peTitle='预估全年扣非亏损，无法估值，本项记 0；对照 '+gPE; }
+  else if(fwdPE!=null && fwdPE>100){ peLabel='前瞻估值'; peTitle='前瞻扣非PE 过高（预估扣非盈利极薄），本项记 0；对照 '+gPE; }
+  else if(peBasis.indexOf('前瞻')===0){
+    peLabel='前瞻扣非PE';
+    const est = (d.fwdEstNp!=null) ? ('预估全年归母 '+d.fwdEstNp+' 亿（按去年同期节奏外推）、去年派息率 '+(d.fwdPayout!=null?d.fwdPayout.toFixed(0)+'%':'—')) : '';
+    peTitle='以「前瞻扣非PE」为准——用当年季度利润外推全年利润：'+fwdPEtxt+'；'+est+(d.dedRatioTtm!=null?('；扣非/归母TTM='+d.dedRatioTtm.toFixed(2)):'');
+  } else { peLabel='PE 分位'; peTitle='前瞻数据不足，回退其他口径；'+gPE; }
+  const pbTitle = '前瞻PB '+(fwdPB!=null?fwdPB.toFixed(2):'—')+(fwdPbPct!=null?'（分位 '+fwdPbPct.toFixed(1)+'%）':'')+'（净资产 = 最新净资产 + 预估剩余利润）'
+    +'；对照 TTM PB '+(snapPB!=null?snapPB.toFixed(2):'—')+(pbPct!=null?'（分位 '+pbPct.toFixed(1)+'%）':'');
+  const peShown = (fwdPE!=null && d.fwdEps>0) ? fwdPE : snapPE;
+  const pePctShown = (fwdPePct!=null && d.fwdHP && d.fwdHP.length>=12) ? fwdPePct : pePct;
+  const pbShown = (fwdPB!=null && d.fwdBvps>0) ? fwdPB : snapPB;
+  const pbPctShown = (fwdPbPct!=null && d.fwdHPB && d.fwdHPB.length>=12) ? fwdPbPct : pbPct;
+  const fwdDivShown = (d.fwdDpsEst>0 && validPrice>0) ? (d.fwdDpsEst/validPrice*100) : d.fwdDivYield;
 
   // ---- 近一年最低点（用日K最低收盘价近似；daily 为 [date, close]，约 241 个交易日≈1年）----
   let lowYear = null, lowYearDate = null;
@@ -523,8 +530,8 @@ function renderScore(realtime){
 
   document.getElementById('score-grid').innerHTML = `
     <div class="score-row"><span class="name">估值 · ${peLabel}<span class="cf-hint" title="${peTitle}">?</span></span><span class="val">${peShown!=null?peShown.toFixed(2):'-'} (${pePctShown!=null?pePctShown.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(peSc)}">${peSc}</span></div>
-    <div class="score-row"><span class="name">PB 历史分位</span><span class="val">${snapPB!=null?snapPB.toFixed(2):'-'} (${pbPct!=null?pbPct.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(pbSc)}">${pbSc}</span></div>
-    <div class="score-row"><span class="name">股息率（年化 ${d.annYear||'-'}年）${divSust===0?('<span class="cf-hint" title="⚠ 股息率不可持续，本项已打折：'+(d.divReason||'扣非利润下滑或分红透支').replace(/"/g,'')+'">!</span>'):''}</span><span class="val">${snapDiv!=null?snapDiv.toFixed(2)+'%':'-'}${divSust===0?' ⚠':''}</span><span class="pill ${scClass(divSc)}">${divSc}</span></div>
+    <div class="score-row"><span class="name">前瞻PB<span class="cf-hint" title="${pbTitle}">?</span></span><span class="val">${pbShown!=null?pbShown.toFixed(2):'-'} (${pbPctShown!=null?pbPctShown.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(pbSc)}">${pbSc}</span></div>
+    <div class="score-row"><span class="name">前瞻股息率<span class="cf-hint" title="前瞻股息率 = 预估全年归母 × 去年派息率 ÷ 市值（对照：TTM 股息率 ${snapDiv!=null?snapDiv.toFixed(2)+'%':'—'}）">?</span>${divSust===0?('<span class="cf-hint" title="⚠ 已打折：'+(d.divReason||'扣非利润下滑或分红透支').replace(/"/g,'')+'">!</span>'):''}</span><span class="val">${fwdDivShown!=null?fwdDivShown.toFixed(2)+'%':'-'}${divSust===0?' ⚠':''}</span><span class="pill ${scClass(divSc)}">${divSc}</span></div>
     <div class="score-row"><span class="name">净现金 / 市值</span><span class="val"${ncTitle?' title="'+ncTitle+'"':''}>${d.netCashRatio!=null?d.netCashRatio.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(ncSc)}">${ncSc}</span></div>
     <div class="score-row"><span class="name">企业属性</span><span class="val">${d.soe||'-'}</span><span class="pill ${scClass(atSc)}">${atSc}</span></div>
     <div class="score-row"><span class="name">近 4 年平均 ROCE</span><span class="val">${d.avgRoce!=null?d.avgRoce.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(roSc)}">${roSc}</span></div>
