@@ -69,7 +69,23 @@
   .pager .info{font-size:12px;color:var(--muted);margin:0 8px;}
   .loading{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
   .val-sub{display:block;font-size:10px;color:var(--muted);font-weight:400;margin-top:1px;}
-  .warn-dot{display:inline-block;width:13px;height:13px;line-height:12px;text-align:center;border-radius:50%;background:#fde8e8;color:#c0392b;border:1px solid #f0a9a0;font-size:10px;font-weight:700;margin-left:3px;cursor:help;vertical-align:middle;}
+  .warn-dot{display:inline-block;width:13px;height:13px;line-height:12px;text-align:center;border-radius:50%;background:#fde8e8;color:#c0392b;border:1px solid #f0a9a0;font-size:10px;font-weight:700;margin-left:3px;cursor:pointer;vertical-align:middle;}
+  /* 前瞻股息率可信度说明弹窗 */
+  .modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:60;}
+  .modal-box{background:var(--card);border-radius:14px;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+  .modal-title{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+  .modal-sub{font-size:12px;color:var(--muted);margin-bottom:8px;}
+  .mini-btn{background:#f3f5f9;border:1px solid var(--line);border-radius:7px;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--ink);}
+  .mini-btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;}
+  .divwarn-box{width:min(580px,92vw);max-height:86vh;display:flex;flex-direction:column;}
+  .dw-body{overflow:auto;padding:2px 2px 6px;font-size:13px;line-height:1.7;color:#374151;}
+  .dw-kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin:10px 0;}
+  .dw-kv span{color:var(--muted);font-size:12.5px;}
+  .dw-kv b{text-align:right;font-weight:600;color:var(--ink);}
+  .dw-why{font-weight:600;margin:14px 0 6px;font-size:13px;color:var(--ink);}
+  .dw-li{position:relative;padding-left:22px;margin:7px 0;font-size:12.5px;line-height:1.7;}
+  .dw-li:before{content:"!";position:absolute;left:0;top:2px;width:14px;height:14px;line-height:13px;text-align:center;border-radius:50%;background:#fde8e8;color:#c0392b;border:1px solid #f0a9a0;font-size:10px;font-weight:700;}
+  .dw-note{margin-top:14px;font-size:11px;color:var(--muted);line-height:1.65;border-top:1px solid var(--line);padding-top:10px;}
   @media(max-width:880px){ .layout{grid-template-columns:1fr;} .filter{position:static;} }
 </style>
 </head>
@@ -145,6 +161,18 @@
         <div class="loading">加载中…</div>
       </div>
       <div class="pager" id="pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 前瞻股息率可信度说明弹窗（点击股息率列的红色标记打开） -->
+<div id="divwarn-modal" class="modal-mask" style="display:none">
+  <div class="modal-box divwarn-box">
+    <div class="modal-title" id="divwarn-title">前瞻股息率可信度说明</div>
+    <div class="modal-sub" id="divwarn-sub"></div>
+    <div class="dw-body" id="divwarn-body"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:6px">
+      <button class="mini-btn primary" id="divwarn-close">关闭</button>
     </div>
   </div>
 </div>

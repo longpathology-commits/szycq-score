@@ -481,6 +481,16 @@
   .deep-q{display:flex;justify-content:space-between;gap:8px;font-size:12px;border-bottom:1px dashed #eef0f4;padding:3px 0}
   .deep-q span{color:var(--muted)}
   .deep-q b{font-weight:600;color:#1d2230;text-align:right}
+  .divwarn-box{width:min(580px,92vw);max-height:86vh;display:flex;flex-direction:column}
+  .dw-body{overflow:auto;padding:2px 2px 6px;font-size:13px;line-height:1.7;color:#374151}
+  .dw-kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;background:#f8fafc;border:1px solid #eef0f4;border-radius:10px;padding:11px 14px;margin:10px 0}
+  .dw-kv span{color:var(--muted);font-size:12.5px}
+  .dw-kv b{text-align:right;font-weight:600;color:#1d2230}
+  .dw-why{font-weight:600;margin:14px 0 6px;font-size:13px;color:#1d2230}
+  .dw-li{position:relative;padding-left:22px;margin:7px 0;font-size:12.5px;line-height:1.7}
+  .dw-li:before{content:"!";position:absolute;left:0;top:2px;width:14px;height:14px;line-height:13px;text-align:center;border-radius:50%;background:#fde8e8;color:#c0392b;border:1px solid #f0a9a0;font-size:10px;font-weight:700}
+  .dw-note{margin-top:14px;font-size:11px;color:var(--muted);line-height:1.65;border-top:1px solid #eef0f4;padding-top:10px}
+  .cf-hint.warn{cursor:pointer}
 </style>
 <div id="deep-modal" class="modal-mask" style="display:none">
   <div class="modal-box deep-modal-box">
@@ -493,7 +503,19 @@
   </div>
 </div>
 
-<script src="watchstore.js?v=202609130140"></script>
-<script src="app.js?v=202609130140"></script>
+<!-- 前瞻股息率可信度说明弹窗（点击股息率旁的红色标记打开） -->
+<div id="divwarn-modal" class="modal-mask" style="display:none">
+  <div class="modal-box divwarn-box">
+    <div class="modal-title" id="divwarn-title">前瞻股息率可信度说明</div>
+    <div class="modal-sub" id="divwarn-sub"></div>
+    <div class="dw-body" id="divwarn-body"></div>
+    <div class="roce-modal-foot" style="justify-content:flex-end">
+      <button class="mini-btn primary" id="divwarn-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="watchstore.js?v=202609130150"></script>
+<script src="app.js?v=202609130150"></script>
 </body>
 </html>

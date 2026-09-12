@@ -113,7 +113,7 @@ function render(){
       let sub='';
       if(f.valKey && e[f.valKey]!=null){ sub=`<span class="val-sub">${f.valFmt(e[f.valKey])}</span>`; }
       // 前瞻股息率可信度预警：命中时在数值旁加红色标记，悬停显示原因
-      if(f.key==='divSc' && e.divFwdWarn){ sub += `<span class="warn-dot" title="⚠ 前瞻股息率可能失真：${(e.divFwdReason||'').replace(/"/g,'')}">!</span>`; }
+      if(f.key==='divSc' && e.divFwdWarn){ sub += `<span class="warn-dot" title="点击查看前瞻股息率可信度说明" onclick="openDivWarnAll('${e.code}')">!</span>`; }
       return `<td><span class="sc" style="background:${col.bg};color:${col.t}">${e[f.key]==null?'—':e[f.key]}</span>${sub}</td>`;
     }).join('');
     const lySub = LOWYEAR.subFmt(e) ? `<span class="val-sub">${LOWYEAR.subFmt(e)}</span>` : '';
@@ -216,3 +216,32 @@ async function init(){
   }
 }
 init();
+
+// ----- 前瞻股息率可信度说明（点击股息率列的红色标记弹出）-----
+function openDivWarnAll(code){
+  const e = (ALL && ALL.length) ? ALL.find(x => x.code === code) : null;
+  if(!e) return;
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  document.getElementById('divwarn-title').textContent = '前瞻股息率可信度说明';
+  document.getElementById('divwarn-sub').innerHTML = esc(e.name) + '（' + esc(e.code) + '）';
+  const rows = [
+    ['前瞻股息率', (e.divY!=null? e.divY.toFixed(2)+'%' : '—') + (e.trailDiv>0? '（TTM 股息率 '+e.trailDiv.toFixed(2)+'%）' : (e.trailDiv===0? '（TTM 未分红）':''))],
+    ['预估全年归母净利', e.fwdEstNp!=null? e.fwdEstNp+' 亿元（按去年同期节奏外推）' : '—'],
+    ['去年派息率', e.fwdPayout!=null? e.fwdPayout.toFixed(0)+'%' : '—'],
+    ['扣非 / 归母（TTM）', e.dedRatioTtm!=null? e.dedRatioTtm.toFixed(2) : '—'],
+  ];
+  let h = '<div class="dw-kv">' + rows.map(r=>'<span>'+esc(r[0])+'</span><b>'+esc(r[1])+'</b>').join('') + '</div>';
+  h += '<div class="dw-why">为什么给出这个提示</div>';
+  const reasons = e.divFwdReason ? e.divFwdReason.split('；') : [];
+  h += reasons.map(r=>'<div class="dw-li">'+esc(r)+'</div>').join('');
+  h += '<div class="dw-note">前瞻股息率 = 预估全年归母净利润 × 去年派息率 ÷ 当前市值，即"假设公司按去年的派息比例分配今年的预估利润"。'
+     + '触发提示的条件（满足任一）：① 前瞻股息率 ≥10%（A 股常态不足 8%）；② 支撑股息的利润含大额非经常性损益（扣非/归母低于 0.6）且股息率 ≥6%；③ 前瞻股息率 ≥2.5 倍 TTM 股息率且 ≥8%。'
+     + '本提示仅为数据可信度提醒，不构成投资建议。</div>';
+  document.getElementById('divwarn-body').innerHTML = h;
+  document.getElementById('divwarn-modal').style.display = 'flex';
+}
+function closeDivWarnAll(){ const m = document.getElementById('divwarn-modal'); if(m) m.style.display = 'none'; }
+(function initDivWarnAll(){
+  const c = document.getElementById('divwarn-close'); if(c) c.onclick = closeDivWarnAll;
+  const m = document.getElementById('divwarn-modal'); if(m) m.onclick = (ev) => { if(ev.target === m) closeDivWarnAll(); };
+})();
