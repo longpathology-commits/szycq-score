@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202609130100'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609130125'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -414,6 +414,8 @@ function renderScore(realtime){
   const validPrice = (typeof price === 'number' && !isNaN(price)) ? price : null;
   const mcap = (d.shares && validPrice) ? validPrice * d.shares / 1e8 : null; // 亿元
   document.getElementById('score-title').textContent = `${d.name}（${d.code}）评分`;
+  const __db = document.getElementById('deep-btn');
+  if(__db) __db.style.display = deepHas(d.code) ? '' : 'none';
   updateStar();
   document.getElementById('score-meta').innerHTML = `
     实时价 <span class="liveprice">¥${validPrice!=null?validPrice.toFixed(2):'-'}</span> · 总市值 ${mcap!=null?mcap.toFixed(0)+'亿元':'-'} · 企业属性 ${d.soe}
@@ -1327,4 +1329,50 @@ function attachRoce(){
         alert('已从云端恢复标记框 ' + arr.length + ' 条');
       }).catch(function(e){ alert('云端恢复失败：' + e.message); });
   };
+})();
+
+// ----- 深度分析（定性 + 定量）-----
+// 数据文件 deep_analysis.json：{ code: { name, date, verdict, tags[], quant[][], sections[{t,items[]}] } }
+// 在评分卡标题（公司名 + ☆ 旁）显示「深度分析」按钮，点开弹出该公司的定性与定量结论。
+var DEEP_DB = null, DEEP_TRIED = false;
+async function loadDeepDB(){
+  if(DEEP_TRIED) return DEEP_DB;
+  DEEP_TRIED = true;
+  try{
+    const r = await fetch(dataUrl('deep_analysis.json'), { cache:'no-cache' });
+    DEEP_DB = r.ok ? await r.json() : {};
+  }catch(e){ DEEP_DB = {}; console.warn('deep_analysis.json 加载失败:', e.message); }
+  return DEEP_DB;
+}
+function deepHas(code){ return !!(DEEP_DB && DEEP_DB[code]); }
+function deepEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function openDeep(code){
+  const a = DEEP_DB && DEEP_DB[code];
+  if(!a){ return; }
+  document.getElementById('deep-title').innerHTML = deepEsc(a.name || code) + ' · 深度分析';
+  const tags = (a.tags && a.tags.length) ? a.tags.map(t=>'<span class="deep-tag">'+deepEsc(t)+'</span>').join(' ') : '';
+  document.getElementById('deep-sub').innerHTML =
+    (a.date ? '分析日期 ' + deepEsc(a.date) + ' ｜ ' : '') + '定性判断 + 定量关键指标' + (tags ? ' ｜ ' + tags : '');
+  let h = '';
+  if(a.verdict) h += '<div class="deep-verdict"><b>结论：</b>' + deepEsc(a.verdict) + '</div>';
+  if(a.quant && a.quant.length){
+    h += '<div class="deep-quant">' + a.quant.map(q => '<div class="deep-q"><span>'+deepEsc(q[0])+'</span><b>'+deepEsc(q[1])+'</b></div>').join('') + '</div>';
+  }
+  (a.sections || []).forEach(s => {
+    h += '<div class="deep-sec"><h4>' + deepEsc(s.t) + '</h4><ul>'
+      + (s.items || []).map(i => '<li>' + deepEsc(i) + '</li>').join('') + '</ul></div>';
+  });
+  h += '<div style="font-size:11px;color:var(--muted);margin-top:6px">本分析基于公开数据与公司公告整理，不构成投资建议。</div>';
+  document.getElementById('deep-body').innerHTML = h;
+  document.getElementById('deep-modal').style.display = 'flex';
+}
+function closeDeep(){ const m = document.getElementById('deep-modal'); if(m) m.style.display = 'none'; }
+(function initDeep(){
+  const b = document.getElementById('deep-btn');
+  if(b) b.onclick = () => { if(currentCode) openDeep(currentCode); };
+  const c = document.getElementById('deep-close');
+  if(c) c.onclick = closeDeep;
+  const m = document.getElementById('deep-modal');
+  if(m) m.onclick = (e) => { if(e.target === m) closeDeep(); };
+  if(b) loadDeepDB().then(() => { if(currentData){ try { renderScore(); } catch(e){} } });
 })();

@@ -354,7 +354,7 @@
     <!-- 第一行：评分卡 + 营收/利润（同高对齐） -->
     <div class="detail-row">
       <div class="panel area-score" id="score-panel" style="display:none">
-        <h3><span id="score-title">公司评分</span> <span id="star-btn" class="star-btn" title="加入 / 移出标记框">☆</span><span id="star-hint" class="star-hint"></span></h3>
+        <h3><span id="score-title">公司评分</span> <span id="star-btn" class="star-btn" title="加入 / 移出标记框">☆</span><span id="star-hint" class="star-hint"></span><button id="deep-btn" class="deep-btn" style="display:none" title="查看该公司的定性与定量深度分析">深度分析 ▸</button></h3>
         <div class="meta-row" id="score-meta"></div>
         <div class="cred-tip" id="score-cred" style="display:none"></div>
         <div class="score-grid" id="score-grid"></div>
@@ -463,7 +463,36 @@
   </div>
 </div>
 
-<script src="watchstore.js?v=202609130100"></script>
-<script src="app.js?v=202609130100"></script>
+<!-- 深度分析弹窗（定性 + 定量） -->
+<style>
+  .deep-btn{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:8px;font-weight:500}
+  .deep-btn:hover{background:#e0e7ff}
+  .deep-modal-box{width:min(880px,92vw);max-height:86vh;display:flex;flex-direction:column}
+  .deep-body{overflow:auto;padding:2px 2px 6px}
+  .deep-verdict{background:#f8fafc;border-left:3px solid #3b6ff0;padding:8px 11px;border-radius:6px;font-size:13px;line-height:1.65;margin-bottom:10px;color:#1d2230}
+  .deep-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .deep-tag{background:#eef2ff;color:#3730a3;border-radius:999px;padding:2px 9px;font-size:11px}
+  .deep-sec{margin:0 0 14px}
+  .deep-sec h4{margin:0 0 6px;font-size:13px;color:#1d2230;border-bottom:1px solid #eef0f4;padding-bottom:4px}
+  .deep-sec ul{margin:0;padding-left:18px}
+  .deep-sec li{font-size:12.5px;line-height:1.75;color:#374151;margin-bottom:3px}
+  .deep-quant{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 16px;margin-bottom:14px}
+  .deep-q{display:flex;justify-content:space-between;gap:8px;font-size:12px;border-bottom:1px dashed #eef0f4;padding:3px 0}
+  .deep-q span{color:var(--muted)}
+  .deep-q b{font-weight:600;color:#1d2230;text-align:right}
+</style>
+<div id="deep-modal" class="modal-mask" style="display:none">
+  <div class="modal-box deep-modal-box">
+    <div class="modal-title" id="deep-title">深度分析</div>
+    <div class="modal-sub" id="deep-sub"></div>
+    <div class="deep-body" id="deep-body"></div>
+    <div class="roce-modal-foot" style="justify-content:flex-end">
+      <button class="mini-btn primary" id="deep-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="watchstore.js?v=202609130125"></script>
+<script src="app.js?v=202609130125"></script>
 </body>
 </html>
