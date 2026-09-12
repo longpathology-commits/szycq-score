@@ -21,6 +21,7 @@ const FACTORS = [
   {key:'atSc',   name:'属性',     max:10, valKey:null},
   {key:'roSc',   name:'ROCE',     max:10, valKey:'roce',  valFmt:v=>v==null?'—':v.toFixed(1)+'%'},
   {key:'paSc',   name:'派息',     max:10, valKey:'pay',   valFmt:v=>v==null?'—':v.toFixed(1)+'%'},
+  {key:'cfSc',   name:'现金流/扣非', max:10, valKey:'cfRatio', valFmt:v=>v==null?'—':v.toFixed(2)+'×'},
 ];
 // “现价比一年最低点”独立展示列（不参与因子阈值筛选，仅展示+可排序）
 const LOWYEAR = {key:'lowYearPct', name:'现价比一年最低', max:60, valFmt:v=>v==null?'—':v.toFixed(1)+'%', subFmt:(e)=>{ if(e.lowYearPct==null) return ''; if(Math.abs(e.lowYearPct)<0.5) return '近一年最低'; return '最低¥'+e.lowYear+(e.lowYearDate?'/'+e.lowYearDate:''); }};
@@ -31,7 +32,7 @@ let currentPage = 1;
 const state = {
   sortField:'total',
   sortDir:'desc',
-  thresholds:{ peSc:0, pbSc:0, divSc:0, ncSc:0, atSc:0, roSc:0, paSc:0 },
+  thresholds:{ peSc:0, pbSc:0, divSc:0, ncSc:0, atSc:0, roSc:0, paSc:0, cfSc:0 },
   soe:''
 };
 
@@ -192,7 +193,7 @@ async function init(){
   $('applyBtn').onclick=apply;
   $('resetBtn').onclick=()=>{
     state.sortField='total'; state.sortDir='desc'; state.soe='';
-    state.thresholds={peSc:0,pbSc:0,divSc:0,ncSc:0,atSc:0,roSc:0,paSc:0};
+    state.thresholds={peSc:0,pbSc:0,divSc:0,ncSc:0,atSc:0,roSc:0,paSc:0,cfSc:0};
     $('sortField').value='total'; syncDirUI();
     document.querySelectorAll('#soeGrp button').forEach((x,i)=>x.classList.toggle('on',i===0));
     document.querySelectorAll('#thresholds input').forEach(inp=>{ inp.value='0'; inp.nextElementSibling.textContent='0'; });

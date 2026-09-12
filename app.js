@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202609112300'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609122230'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -116,6 +116,7 @@ function renderMore(upTo){
         <div class="prop"><span class="label">净现金 <span class="pill ${scClass(e.ncSc)}">${e.ncSc}</span></span><span>${e.nc!=null?e.nc.toFixed(1)+'%':'-'}</span></div>
         <div class="prop"><span class="label">ROCE <span class="pill ${scClass(e.roSc)}">${e.roSc}</span></span><span>${e.roce!=null?e.roce.toFixed(1)+'%':'-'}</span></div>
         <div class="prop"><span class="label">派息率 <span class="pill ${scClass(e.paSc)}">${e.paSc}</span></span><span>${e.pay!=null?e.pay.toFixed(1)+'%':'-'}</span></div>
+        <div class="prop"><span class="label">现金流/扣非 <span class="pill ${scClass(e.cfSc!=null?e.cfSc:0)}">${e.cfSc!=null?e.cfSc:0}</span></span><span>${e.cfRatio!=null?e.cfRatio.toFixed(2)+'×':'-'}</span></div>
       </div>
     `;
     card.onclick = () => selectCode(e.code);
@@ -427,6 +428,9 @@ function renderScore(realtime){
   if(hardMiss.length){
     credEl.style.display = '';
     credEl.innerHTML = '⚠ 数据缺失：' + hardMiss.join('、') + '，对应因子未计分，评分仅供参考';
+  } else if(d.cfRatio == null){
+    credEl.style.display = '';
+    credEl.innerHTML = '⚠ 扣非净利润≤0 或现金流数据缺失，「经营现金流/扣非净利」因子记 0 分';
   } else if(d.ttmEps == null){
     credEl.style.display = '';
     credEl.innerHTML = '⚠ 缺少 TTM EPS，PE 采用烘焙静态值（非实时），其余因子正常';
@@ -449,7 +453,8 @@ function renderScore(realtime){
   const atSc = scAt(d.soe);
   const roSc = scRo(d.avgRoce);
   const paSc = scPa(d.avgPayout);
-  const total = peSc+pbSc+divSc+ncSc+atSc+roSc+paSc;
+  const cfSc = d.cfSc || 0;   // 第8因子：经营现金流/扣非净利（横截面排位，已在构建时算好，与实时价无关）
+  const total = peSc+pbSc+divSc+ncSc+atSc+roSc+paSc+cfSc;
 
   // ---- 近一年最低点（用日K最低收盘价近似；daily 为 [date, close]，约 241 个交易日≈1年）----
   let lowYear = null, lowYearDate = null;
@@ -481,6 +486,7 @@ function renderScore(realtime){
     <div class="score-row"><span class="name">企业属性</span><span class="val">${d.soe||'-'}</span><span class="pill ${scClass(atSc)}">${atSc}</span></div>
     <div class="score-row"><span class="name">近 4 年平均 ROCE</span><span class="val">${d.avgRoce!=null?d.avgRoce.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(roSc)}">${roSc}</span></div>
     <div class="score-row"><span class="name">近 4 年平均派息比例</span><span class="val">${d.avgPayout!=null?d.avgPayout.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(paSc)}">${paSc}</span></div>
+    <div class="score-row"><span class="name">经营现金流 / 扣非净利<span class="cf-hint" title="经营现金流(TTM) ÷ 扣非净利润(TTM)，按全市场横截面排位给分：前10%→10 / 10~25%→8 / 25~40%→6 / 40~60%→4 / 60~80%→2 / 后20%→0。扣非≤0记0分。">?</span></span><span class="val">${d.cfRatio!=null?d.cfRatio.toFixed(2)+'×'+(d.cfOcf!=null?`（现${d.cfOcf}亿/利${d.cfDed}亿）`:''):'-'}</span><span class="pill ${scClass(cfSc)}">${cfSc}</span></div>
     <div class="score-row hl"><span class="name">现价比一年最低点</span><span class="val">${lowGapTxt}</span></div>
   `;
   document.getElementById('score-total').textContent = total;
@@ -1073,7 +1079,7 @@ function openRoceModal(){
         </div>
         <button class="ro-toggle" data-code="${e.code}">前瞻▸</button>
         <div class="ro-fps" title="前瞻优先级分 FPS（0~100）">${e.fps!=null?e.fps:'–'}</div>
-        <div class="ro-sc" title="结构分（7因子）">${e.total}</div>
+        <div class="ro-sc" title="结构分（8因子）">${e.total}</div>
         <button class="ro-exclude" data-code="${e.code}">剔除</button>
         <div class="ro-fw" data-code="${e.code}" style="display:none"></div>
       </div>
