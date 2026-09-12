@@ -116,7 +116,7 @@ function renderMore(upTo){
         <div class="prop"><span class="label">净现金 <span class="pill ${scClass(e.ncSc)}">${e.ncSc}</span></span><span>${e.nc!=null?e.nc.toFixed(1)+'%':'-'}</span></div>
         <div class="prop"><span class="label">ROCE <span class="pill ${scClass(e.roSc)}">${e.roSc}</span></span><span>${e.roce!=null?e.roce.toFixed(1)+'%':'-'}</span></div>
         <div class="prop"><span class="label">派息率 <span class="pill ${scClass(e.paSc)}">${e.paSc}</span></span><span>${e.pay!=null?e.pay.toFixed(1)+'%':'-'}</span></div>
-        <div class="prop"><span class="label">盈利质量 <span class="pill ${scClass(e.cfSc!=null?e.cfSc:0)}">${e.cfSc!=null?e.cfSc:0}</span></span><span>${e.cfComposite!=null?(e.cfComposite*100).toFixed(0)+'%':'-'}</span></div>
+        <div class="prop"><span class="label">盈利质量 <span class="pill ${scClass(e.cfSc!=null?e.cfSc:0)}">${e.cfNA?'—':(e.cfSc!=null?e.cfSc:0)}</span></span><span>${e.cfNA?'不适用':(e.cfComposite!=null?(e.cfComposite*100).toFixed(0)+'%':'-')}</span></div>
       </div>
     `;
     card.onclick = () => selectCode(e.code);
@@ -428,7 +428,7 @@ function renderScore(realtime){
   if(hardMiss.length){
     credEl.style.display = '';
     credEl.innerHTML = '⚠ 数据缺失：' + hardMiss.join('、') + '，对应因子未计分，评分仅供参考';
-  } else if(d.cfComposite == null){
+  } else if(d.cfComposite == null && !d.cfNA){
     credEl.style.display = '';
     credEl.innerHTML = '⚠ 现金流/财务数据不足 3 个完整年度，「盈利质量」因子记 0 分';
   } else if(d.ttmEps == null){
@@ -453,8 +453,17 @@ function renderScore(realtime){
   const atSc = scAt(d.soe);
   const roSc = scRo(d.avgRoce);
   const paSc = scPa(d.avgPayout);
-  const cfSc = d.cfSc || 0;   // 第8因子：经营现金流/扣非净利（横截面排位，已在构建时算好，与实时价无关）
+  const cfSc = d.cfSc || 0;   // 第8因子：盈利质量组合分（横截面排位，构建时算好，与实时价无关；金融股为中性分）
   const total = peSc+pbSc+divSc+ncSc+atSc+roSc+paSc+cfSc;
+  // 净现金口径明细（悬停提示）：货币资金 [+ 交易性金融资产] − 有息负债
+  let ncTitle = '';
+  if(d.ncCash!=null){
+    ncTitle = '净现金 = 货币资金 '+d.ncCash+'亿'+(d.ncTrading?(' + 交易性金融资产 '+d.ncTrading+'亿'):'')+(d.cfNA?'（金融股不计交易性金融资产）':'')+' − 有息负债 '+(d.ncDebt!=null?d.ncDebt+'亿':'—');
+    if(d.ncRatioCashOnly!=null){
+      ncTitle += '；仅货币资金口径 = '+d.ncRatioCashOnly.toFixed(1)+'%';
+      if(d.ncSensitive) ncTitle += '（⚠ 两口径相差 ≥15 个百分点：含较多类金融资产/金融子公司，数值请谨慎参考）';
+    }
+  }
 
   // ---- 近一年最低点（用日K最低收盘价近似；daily 为 [date, close]，约 241 个交易日≈1年）----
   let lowYear = null, lowYearDate = null;
@@ -482,11 +491,11 @@ function renderScore(realtime){
     <div class="score-row"><span class="name">PE 历史分位</span><span class="val">${snapPE!=null?snapPE.toFixed(2):'-'} (${pePct!=null?pePct.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(peSc)}">${peSc}</span></div>
     <div class="score-row"><span class="name">PB 历史分位</span><span class="val">${snapPB!=null?snapPB.toFixed(2):'-'} (${pbPct!=null?pbPct.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(pbSc)}">${pbSc}</span></div>
     <div class="score-row"><span class="name">股息率（年化 ${d.annYear||'-'}年）</span><span class="val">${snapDiv!=null?snapDiv.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(divSc)}">${divSc}</span></div>
-    <div class="score-row"><span class="name">净现金 / 市值</span><span class="val">${d.netCashRatio!=null?d.netCashRatio.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(ncSc)}">${ncSc}</span></div>
+    <div class="score-row"><span class="name">净现金 / 市值</span><span class="val"${ncTitle?' title="'+ncTitle+'"':''}>${d.netCashRatio!=null?d.netCashRatio.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(ncSc)}">${ncSc}</span></div>
     <div class="score-row"><span class="name">企业属性</span><span class="val">${d.soe||'-'}</span><span class="pill ${scClass(atSc)}">${atSc}</span></div>
     <div class="score-row"><span class="name">近 4 年平均 ROCE</span><span class="val">${d.avgRoce!=null?d.avgRoce.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(roSc)}">${roSc}</span></div>
     <div class="score-row"><span class="name">近 4 年平均派息比例</span><span class="val">${d.avgPayout!=null?d.avgPayout.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(paSc)}">${paSc}</span></div>
-    <div class="score-row"><span class="name">盈利质量<span class="cf-hint" title="近3个完整年度合计的三项组合：现金含量(Σ经营现金流÷Σ扣非净利)权重40% + 收现比(Σ销售商品收到现金÷Σ营业收入)权重40% + 应计质量(Σ(归母净利−经营现金流)÷Σ总资产)权重20%；各子项先转全市场横截面百分位再加权，最后按排位给分：前10%→10 / 10~25%→8 / 25~40%→6 / 40~60%→4 / 60~80%→2 / 后20%→0。用多年合计可抑制单期波动与财务公司失真。">?</span></span><span class="val"${d.cfComposite!=null?' title="现金含量 '+(d.cfCash!=null?d.cfCash.toFixed(2)+'×':'—')+' · 收现比 '+(d.cfCollect!=null?d.cfCollect.toFixed(2):'—')+' · 应计质量 '+(d.cfAccrual!=null?d.cfAccrual.toFixed(3):'—')+'（越低越好）"':''}>${d.cfComposite!=null?(d.cfComposite*100).toFixed(0)+'%':'-'}</span><span class="pill ${scClass(cfSc)}">${cfSc}</span></div>
+    <div class="score-row"><span class="name">盈利质量<span class="cf-hint" title="近3个完整年度合计的三项组合：现金含量(Σ经营现金流÷Σ扣非净利)权重40% + 收现比(Σ销售商品收到现金÷Σ营业收入)权重40% + 应计质量(Σ(归母净利−经营现金流)÷Σ总资产)权重20%；各子项先转全市场横截面百分位再加权，最后按排位给分：前10%→10 / 10~25%→8 / 25~40%→6 / 40~60%→4 / 60~80%→2 / 后20%→0。用多年合计可抑制单期波动与财务公司失真。">?</span></span><span class="val"${d.cfComposite!=null?' title="现金含量 '+(d.cfCash!=null?d.cfCash.toFixed(2)+'×':'—')+' · 收现比 '+(d.cfCollect!=null?d.cfCollect.toFixed(2):'—')+' · 应计质量 '+(d.cfAccrual!=null?d.cfAccrual.toFixed(3):'—')+'（越低越好）"':''}>${d.cfNA?'不适用':(d.cfComposite!=null?(d.cfComposite*100).toFixed(0)+'%':'-')}</span><span class="pill ${scClass(cfSc)}"${d.cfNA?' title="金融股该指标口径不适用，按中性计分"':''}>${d.cfNA?'—':cfSc}</span></div>
     <div class="score-row hl"><span class="name">现价比一年最低点</span><span class="val">${lowGapTxt}</span></div>
   `;
   document.getElementById('score-total').textContent = total;
