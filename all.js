@@ -14,7 +14,7 @@ function scoreColor(score, max){
 
 const PAGE_SIZE = 30;
 const FACTORS = [
-  {key:'peSc',   name:'PE分位',   max:10, valKey:'pePct', valFmt:v=>v==null?'—':v.toFixed(1)+'%'},
+  {key:'peSc',   name:'扣非PE分位', max:10, valKey:'dedPePct', valFmt:v=>v==null?'—':v.toFixed(1)+'%'},
   {key:'pbSc',   name:'PB分位',   max:10, valKey:'pbPct', valFmt:v=>v==null?'—':v.toFixed(1)+'%'},
   {key:'divSc',  name:'股息率',   max:20, valKey:'divY',  valFmt:v=>v==null?'—':v.toFixed(2)+'%'},
   {key:'ncSc',   name:'净现金',   max:10, valKey:'nc',    valFmt:v=>v==null?'—':v.toFixed(1)+'%'},
