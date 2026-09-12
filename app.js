@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202609130125'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609130140'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -518,6 +518,17 @@ function renderScore(realtime){
   const pbShown = (fwdPB!=null && d.fwdBvps>0) ? fwdPB : snapPB;
   const pbPctShown = (fwdPbPct!=null && d.fwdHPB && d.fwdHPB.length>=12) ? fwdPbPct : pbPct;
   const fwdDivShown = (d.fwdDpsEst>0 && validPrice>0) ? (d.fwdDpsEst/validPrice*100) : d.fwdDivYield;
+  // ---- 前瞻股息率可信度预警（与 build_dist.js 同规则，用实时价口径）----
+  //   提示"这个前瞻股息率有问题"的具体原因，供悬停查看
+  const dwR = [];
+  if (fwdDivShown != null && fwdDivShown >= 10)
+    dwR.push(`前瞻股息率 ${fwdDivShown.toFixed(1)}% 显著高于 A 股常态（正常不足 8%）：高股息率通常来自股价大幅下跌，或利润含一次性/非现金收益（如资产处置、公允价值变动），请核实利润来源与可持续性`);
+  if (d.earnWarn === 1 && fwdDivShown != null && fwdDivShown >= 6)
+    dwR.push('支撑该股息率的利润含大额非经常性损益（扣非/归母低于 0.6），股息基础不牢，可能无法持续');
+  if (snapDiv != null && snapDiv > 0 && fwdDivShown != null && fwdDivShown >= 2.5 * snapDiv && fwdDivShown >= 8)
+    dwR.push(`前瞻股息率是 TTM 股息率（${snapDiv.toFixed(2)}%）的 ${(fwdDivShown / snapDiv).toFixed(1)} 倍，主要由「利润外推」假设贡献；若全年利润不达预期，股息会同步缩水`);
+  const divFwdWarn = dwR.length ? 1 : null;
+  const divFwdReason = dwR.length ? dwR.join('；') : null;
   // ---- 保险 / 券商 展示覆盖 ----
   let peLabel2 = peLabel, peTitle2 = peTitle, peShown2 = peShown, pePctShown2 = pePctShown;
   if(d.nbType==='INS'){
@@ -554,7 +565,7 @@ function renderScore(realtime){
   document.getElementById('score-grid').innerHTML = `
     <div class="score-row"><span class="name">估值 · ${peLabel2}<span class="cf-hint" title="${peTitle2}">?</span></span><span class="val">${peShown2!=null?peShown2.toFixed(2):'-'}${pePctShown2!=null?' ('+pePctShown2.toFixed(1)+'%)':''}</span><span class="pill ${scClass(peSc)}">${peSc}</span></div>
     <div class="score-row"><span class="name">前瞻PB<span class="cf-hint" title="${pbTitle}">?</span></span><span class="val">${pbShown!=null?pbShown.toFixed(2):'-'} (${pbPctShown!=null?pbPctShown.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(pbSc)}">${pbSc}</span></div>
-    <div class="score-row"><span class="name">前瞻股息率<span class="cf-hint" title="前瞻股息率 = 预估全年归母 × 去年派息率 ÷ 市值（对照：TTM 股息率 ${snapDiv!=null?snapDiv.toFixed(2)+'%':'—'}）">?</span>${divSust===0?('<span class="cf-hint" title="⚠ 已打折：'+(d.divReason||'扣非利润下滑或分红透支').replace(/"/g,'')+'">!</span>'):''}</span><span class="val">${fwdDivShown!=null?fwdDivShown.toFixed(2)+'%':'-'}${divSust===0?' ⚠':''}</span><span class="pill ${scClass(divSc)}">${divSc}</span></div>
+    <div class="score-row"><span class="name">前瞻股息率<span class="cf-hint" title="前瞻股息率 = 预估全年归母 × 去年派息率 ÷ 市值（对照：TTM 股息率 ${snapDiv!=null?snapDiv.toFixed(2)+'%':'—'}）">?</span>${divFwdWarn?('<span class="cf-hint warn" title="⚠ 此前瞻股息率可能失真：'+(divFwdReason||'').replace(/"/g,'')+'">!</span>'):''}${divSust===0?('<span class="cf-hint" title="⚠ 已打折：'+(d.divReason||'扣非利润下滑或分红透支').replace(/"/g,'')+'">!</span>'):''}</span><span class="val">${fwdDivShown!=null?fwdDivShown.toFixed(2)+'%':'-'}${(divSust===0||divFwdWarn)?' ⚠':''}</span><span class="pill ${scClass(divSc)}">${divSc}</span></div>
     <div class="score-row"><span class="name">净现金 / 市值</span><span class="val"${ncTitle?' title="'+ncTitle+'"':''}>${d.netCashRatio!=null?d.netCashRatio.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(ncSc)}">${ncSc}</span></div>
     <div class="score-row"><span class="name">企业属性</span><span class="val">${d.soe||'-'}</span><span class="pill ${scClass(atSc)}">${atSc}</span></div>
     <div class="score-row"><span class="name">近 4 年平均 ROCE</span><span class="val">${d.avgRoce!=null?d.avgRoce.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(roSc)}">${roSc}</span></div>

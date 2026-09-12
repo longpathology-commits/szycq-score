@@ -112,6 +112,8 @@ function render(){
       const col=scoreColor(sc,f.max);
       let sub='';
       if(f.valKey && e[f.valKey]!=null){ sub=`<span class="val-sub">${f.valFmt(e[f.valKey])}</span>`; }
+      // 前瞻股息率可信度预警：命中时在数值旁加红色标记，悬停显示原因
+      if(f.key==='divSc' && e.divFwdWarn){ sub += `<span class="warn-dot" title="⚠ 前瞻股息率可能失真：${(e.divFwdReason||'').replace(/"/g,'')}">!</span>`; }
       return `<td><span class="sc" style="background:${col.bg};color:${col.t}">${e[f.key]==null?'—':e[f.key]}</span>${sub}</td>`;
     }).join('');
     const lySub = LOWYEAR.subFmt(e) ? `<span class="val-sub">${LOWYEAR.subFmt(e)}</span>` : '';
