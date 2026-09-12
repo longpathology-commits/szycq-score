@@ -454,7 +454,8 @@ function renderScore(realtime){
   const roSc = scRo(d.avgRoce);
   const paSc = scPa(d.avgPayout);
   const cfSc = d.cfSc || 0;   // 第8因子：盈利质量组合分（横截面排位，构建时算好，与实时价无关；金融股为中性分）
-  const total = peSc+pbSc+divSc+ncSc+atSc+roSc+paSc+cfSc;
+  const fwdSc = d.fwdSc || 0; // 第9因子：前瞻赋分（−10~+10，行业级；正=潜在成长，负=潜在负成长）
+  const total = peSc+pbSc+divSc+ncSc+atSc+roSc+paSc+cfSc+fwdSc;
   // 净现金口径明细（悬停提示）：货币资金 [+ 交易性金融资产] − 有息负债
   let ncTitle = '';
   if(d.ncCash!=null){
@@ -496,6 +497,7 @@ function renderScore(realtime){
     <div class="score-row"><span class="name">近 4 年平均 ROCE</span><span class="val">${d.avgRoce!=null?d.avgRoce.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(roSc)}">${roSc}</span></div>
     <div class="score-row"><span class="name">近 4 年平均派息比例</span><span class="val">${d.avgPayout!=null?d.avgPayout.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(paSc)}">${paSc}</span></div>
     <div class="score-row"><span class="name">盈利质量<span class="cf-hint" title="近3个完整年度合计的三项组合：现金含量(Σ经营现金流÷Σ扣非净利)权重40% + 收现比(Σ销售商品收到现金÷Σ营业收入)权重40% + 应计质量(Σ(归母净利−经营现金流)÷Σ总资产)权重20%；各子项先转全市场横截面百分位再加权，最后按排位给分：前10%→10 / 10~25%→8 / 25~40%→6 / 40~60%→4 / 60~80%→2 / 后20%→0。用多年合计可抑制单期波动与财务公司失真。">?</span></span><span class="val"${d.cfComposite!=null?' title="现金含量 '+(d.cfCash!=null?d.cfCash.toFixed(2)+'×':'—')+' · 收现比 '+(d.cfCollect!=null?d.cfCollect.toFixed(2):'—')+' · 应计质量 '+(d.cfAccrual!=null?d.cfAccrual.toFixed(3):'—')+'（越低越好）"':''}>${d.cfNA?'不适用':(d.cfComposite!=null?(d.cfComposite*100).toFixed(0)+'%':'-')}</span><span class="pill ${scClass(cfSc)}"${d.cfNA?' title="金融股该指标口径不适用，按中性计分"':''}>${d.cfNA?'—':cfSc}</span></div>
+    <div class="score-row"><span class="name">前瞻赋分<span class="cf-hint" title="按行业（可对个别公司覆写）对「前瞻性成长/衰退」赋分，用于抑制低估值陷阱：考量 ①负面影响是否客观存在 ②对利润的影响程度 ③行业天花板。算法 G(成长前景 0~10) − R(衰退风险 0~10) = fwdSc(−10~+10)：正分=潜在成长，负分=潜在负成长。所属分组：${d.fwdGrp||'-'}。依据：${d.fwdNote||'-'}">?</span></span><span class="val">${d.fwdGrp||'-'}</span><span class="pill ${fwdClass(fwdSc)}">${fwdSc>0?'+':''}${fwdSc}</span></div>
     <div class="score-row hl"><span class="name">现价比一年最低点</span><span class="val">${lowGapTxt}</span></div>
   `;
   document.getElementById('score-total').textContent = total;
@@ -1031,6 +1033,7 @@ let roceSyn = {};                // grpKey -> { name, syn } 行业框架（主�
 let roceSortFps = false;         // ROCE 弹窗排序：false=按ROCE，true=按前瞻优先级(FPS)
 function tierClass(t){ if(t && t.indexOf('P1')===0) return 'tier-p1'; if(t && t.indexOf('P2')===0) return 'tier-p2'; if(t && t.indexOf('P3')===0) return 'tier-p3'; return 'tier-p4'; }
 function moatClass(m){ return m==='强'?'moat-strong':m==='中'?'moat-mid':m==='弱'?'moat-weak':m==='薄'?'moat-thin':m==='衰减'?'moat-decay':'moat-none'; }
+function fwdClass(v){ if(v==null) return 'fwd-0'; if(v>=4) return 'fwd-pos2'; if(v>=1) return 'fwd-pos1'; if(v<=-4) return 'fwd-neg2'; if(v<=-1) return 'fwd-neg1'; return 'fwd-0'; }
 
 function loadRoceExclude(){
   try {
