@@ -460,10 +460,14 @@ function renderScore(realtime){
     else { peSc=peScGross; peBasis='归母PE(扣非历史不足)'; }
   } else { peSc=peScGross; peBasis='归母PE(无扣非数据)'; }
   const pbSc = scPE(pbPct);
-  // ---- 分红可持续性预警：利润含大额一次性(earnWarn) 且 近一年分红总额 > 扣非TTM → 靠一次性/存量支撑，估值打折 ----
+  // ---- 分红可持续性预警（两重：① 分红透支扣非 ② 前瞻性：扣非同比明显为负）----
   const divScRaw = scDiv(snapDiv);
+  const divCands = [];
+  if(d.earnWarn===1 && d.divTotal!=null && d.dedTtm!=null && d.dedTtm>0 && d.divTotal > d.dedTtm) divCands.push(8);
+  if(d.dedYoY!=null && d.dedYoY<=-0.30) divCands.push(8);
+  else if(d.dedYoY!=null && d.dedYoY<=-0.15) divCands.push(12);
   let divSc = divScRaw, divSust = null;
-  if(d.earnWarn===1 && d.divTotal!=null && d.dedTtm!=null && d.dedTtm>0 && d.divTotal > d.dedTtm){ divSust = 0; divSc = Math.min(divScRaw, 8); }
+  for(const cap of divCands){ if(cap < divSc) divSc = cap; if(cap < divScRaw) divSust = 0; }
   const ncSc = scNC(d.netCashRatio);
   const atSc = scAt(d.soe);
   const roSc = scRo(d.avgRoce);
@@ -520,7 +524,7 @@ function renderScore(realtime){
   document.getElementById('score-grid').innerHTML = `
     <div class="score-row"><span class="name">估值 · ${peLabel}<span class="cf-hint" title="${peTitle}">?</span></span><span class="val">${peShown!=null?peShown.toFixed(2):'-'} (${pePctShown!=null?pePctShown.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(peSc)}">${peSc}</span></div>
     <div class="score-row"><span class="name">PB 历史分位</span><span class="val">${snapPB!=null?snapPB.toFixed(2):'-'} (${pbPct!=null?pbPct.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(pbSc)}">${pbSc}</span></div>
-    <div class="score-row"><span class="name">股息率（年化 ${d.annYear||'-'}年）${divSust===0?'<span class="cf-hint" title="⚠ 近一年分红总额超过扣非净利润：利润含大额一次性（如资产处置），分红靠一次性收益/存量现金支撑，股息率不可持续，本项已打折">!</span>':''}</span><span class="val">${snapDiv!=null?snapDiv.toFixed(2)+'%':'-'}${divSust===0?' ⚠':''}</span><span class="pill ${scClass(divSc)}">${divSc}</span></div>
+    <div class="score-row"><span class="name">股息率（年化 ${d.annYear||'-'}年）${divSust===0?('<span class="cf-hint" title="⚠ 股息率不可持续，本项已打折：'+(d.divReason||'扣非利润下滑或分红透支').replace(/"/g,'')+'">!</span>'):''}</span><span class="val">${snapDiv!=null?snapDiv.toFixed(2)+'%':'-'}${divSust===0?' ⚠':''}</span><span class="pill ${scClass(divSc)}">${divSc}</span></div>
     <div class="score-row"><span class="name">净现金 / 市值</span><span class="val"${ncTitle?' title="'+ncTitle+'"':''}>${d.netCashRatio!=null?d.netCashRatio.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(ncSc)}">${ncSc}</span></div>
     <div class="score-row"><span class="name">企业属性</span><span class="val">${d.soe||'-'}</span><span class="pill ${scClass(atSc)}">${atSc}</span></div>
     <div class="score-row"><span class="name">近 4 年平均 ROCE</span><span class="val">${d.avgRoce!=null?d.avgRoce.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(roSc)}">${roSc}</span></div>
