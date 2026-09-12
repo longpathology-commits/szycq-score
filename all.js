@@ -21,7 +21,7 @@ const FACTORS = [
   {key:'atSc',   name:'属性',     max:10, valKey:null},
   {key:'roSc',   name:'ROCE',     max:10, valKey:'roce',  valFmt:v=>v==null?'—':v.toFixed(1)+'%'},
   {key:'paSc',   name:'派息',     max:10, valKey:'pay',   valFmt:v=>v==null?'—':v.toFixed(1)+'%'},
-  {key:'cfSc',   name:'现金流/扣非', max:10, valKey:'cfRatio', valFmt:v=>v==null?'—':v.toFixed(2)+'×'},
+  {key:'cfSc',   name:'盈利质量', max:10, valKey:'cfComposite', valFmt:v=>v==null?'—':(v*100).toFixed(0)+'%'},
 ];
 // “现价比一年最低点”独立展示列（不参与因子阈值筛选，仅展示+可排序）
 const LOWYEAR = {key:'lowYearPct', name:'现价比一年最低', max:60, valFmt:v=>v==null?'—':v.toFixed(1)+'%', subFmt:(e)=>{ if(e.lowYearPct==null) return ''; if(Math.abs(e.lowYearPct)<0.5) return '近一年最低'; return '最低¥'+e.lowYear+(e.lowYearDate?'/'+e.lowYearDate:''); }};
