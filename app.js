@@ -38,6 +38,8 @@ function scNC(v){ if(v==null)return 0; if(v>=30)return 10; if(v>=20)return 8; if
 function scAt(a){ if(a==='央企')return 10; if(a==='地方国企')return 8; if(a==='民营'||a==='集体'||a==='外资')return 6; return 0; }
 function scRo(v){ if(v==null)return 0; if(v>=25)return 10; if(v>=20)return 8; if(v>=15)return 6; if(v>=10)return 4; if(v>=0)return 2; return 0; }
 function scPa(v){ if(v==null)return 0; if(v>=80)return 10; if(v>=60)return 8; if(v>=40)return 6; if(v>=20)return 4; return 2; }
+// 保险股 PEV 分档（绝对阈值，与 build_dist.js 一致）
+function scPEV(v){ if(v==null)return 0; if(v<0.55)return 10; if(v<0.65)return 8; if(v<0.75)return 6; if(v<0.9)return 4; if(v<1.15)return 2; return 0; }
 function scClass(v){
   // 把分数映射到 CSS class
   if(v==null||v===0) return 'sc0';
@@ -462,7 +464,16 @@ function renderScore(realtime){
   else if(d.dedEps!=null && d.dedEps<=0){ peSc=0; peBasis='扣非亏损(不给估值分)'; }
   else if(d.dedPePct!=null && d.dedHP && d.dedHP.length>=12){ peSc=scPE(d.dedPePct); peBasis='扣非TTM PE(前瞻历史不足)'; }
   else { peSc=peScGross; peBasis='归母PE(数据不足)'; }
-  const pbSc = (fwdPbPct!=null && d.fwdHPB && d.fwdHPB.length>=12) ? scPE(fwdPbPct) : pbScGross;
+  let pbSc = (fwdPbPct!=null && d.fwdHPB && d.fwdHPB.length>=12) ? scPE(fwdPbPct) : pbScGross;
+  // ---- 保险 / 券商 单独处理（与 build_dist.js 一致）----
+  let pevLive = d.pev;
+  if(d.nbType==='INS'){
+    if(d.evYuan>0 && validPrice>0 && d.shares>0){ pevLive = validPrice*d.shares/d.evYuan; peSc = scPEV(pevLive); peBasis='保险·PEV'; }
+    else { peSc = 4; peBasis='保险·无EV(中性)'; }
+  } else if(d.nbType==='BROKER'){
+    const pbBased = (fwdPbPct!=null && d.fwdHPB && d.fwdHPB.length>=12) ? scPE(fwdPbPct) : 4;
+    peSc = pbBased; pbSc = pbBased; peBasis='券商·PB分位';
+  }
   // ---- 前瞻股息率打分 + 可持续性折扣（① 分红透支扣非 ② 扣非同比明显为负）----
   const divScRaw = scDiv(fwdDivYield);
   const divCands = [];
@@ -505,6 +516,16 @@ function renderScore(realtime){
   const pbShown = (fwdPB!=null && d.fwdBvps>0) ? fwdPB : snapPB;
   const pbPctShown = (fwdPbPct!=null && d.fwdHPB && d.fwdHPB.length>=12) ? fwdPbPct : pbPct;
   const fwdDivShown = (d.fwdDpsEst>0 && validPrice>0) ? (d.fwdDpsEst/validPrice*100) : d.fwdDivYield;
+  // ---- 保险 / 券商 展示覆盖 ----
+  let peLabel2 = peLabel, peTitle2 = peTitle, peShown2 = peShown, pePctShown2 = pePctShown;
+  if(d.nbType==='INS'){
+    peLabel2 = '保险·PEV'; peShown2 = pevLive; pePctShown2 = null;
+    peTitle2 = '保险股以 PEV = 市值 ÷ 内含价值 估值（PE 不适用）。当前 PEV ' + (pevLive!=null?pevLive.toFixed(2):'—')
+      + '，分档：<0.55→10 / <0.65→8 / <0.75→6 / <0.9→4 / <1.15→2 / ≥1.15→0。' + (d.nbNote||'');
+  } else if(d.nbType==='BROKER'){
+    peLabel2 = '券商·PB分位'; peShown2 = pbShown; pePctShown2 = pbPctShown;
+    peTitle2 = '券商/期货盈利强周期，PE 在周期顶/底会反向失真，故估值以 PB 为准（两个估值槽均取前瞻PB分位）。' + (d.nbNote||'');
+  }
 
   // ---- 近一年最低点（用日K最低收盘价近似；daily 为 [date, close]，约 241 个交易日≈1年）----
   let lowYear = null, lowYearDate = null;
@@ -529,7 +550,7 @@ function renderScore(realtime){
   }
 
   document.getElementById('score-grid').innerHTML = `
-    <div class="score-row"><span class="name">估值 · ${peLabel}<span class="cf-hint" title="${peTitle}">?</span></span><span class="val">${peShown!=null?peShown.toFixed(2):'-'} (${pePctShown!=null?pePctShown.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(peSc)}">${peSc}</span></div>
+    <div class="score-row"><span class="name">估值 · ${peLabel2}<span class="cf-hint" title="${peTitle2}">?</span></span><span class="val">${peShown2!=null?peShown2.toFixed(2):'-'}${pePctShown2!=null?' ('+pePctShown2.toFixed(1)+'%)':''}</span><span class="pill ${scClass(peSc)}">${peSc}</span></div>
     <div class="score-row"><span class="name">前瞻PB<span class="cf-hint" title="${pbTitle}">?</span></span><span class="val">${pbShown!=null?pbShown.toFixed(2):'-'} (${pbPctShown!=null?pbPctShown.toFixed(1)+'%':'-'})</span><span class="pill ${scClass(pbSc)}">${pbSc}</span></div>
     <div class="score-row"><span class="name">前瞻股息率<span class="cf-hint" title="前瞻股息率 = 预估全年归母 × 去年派息率 ÷ 市值（对照：TTM 股息率 ${snapDiv!=null?snapDiv.toFixed(2)+'%':'—'}）">?</span>${divSust===0?('<span class="cf-hint" title="⚠ 已打折：'+(d.divReason||'扣非利润下滑或分红透支').replace(/"/g,'')+'">!</span>'):''}</span><span class="val">${fwdDivShown!=null?fwdDivShown.toFixed(2)+'%':'-'}${divSust===0?' ⚠':''}</span><span class="pill ${scClass(divSc)}">${divSc}</span></div>
     <div class="score-row"><span class="name">净现金 / 市值</span><span class="val"${ncTitle?' title="'+ncTitle+'"':''}>${d.netCashRatio!=null?d.netCashRatio.toFixed(2)+'%':'-'}</span><span class="pill ${scClass(ncSc)}">${ncSc}</span></div>
