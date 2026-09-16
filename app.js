@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202609161610'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609161700'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -891,6 +891,13 @@ async function maybeAutoSelect(){
   const code = params.get('code');
   if(code){
     await selectCode(code.toLowerCase());
+    // 支持从榜单页「深度分析」标记直达：index.html?code=xxx&deep=1
+    if(params.get('deep')){
+      try{
+        await loadDeepDB();
+        if(deepHas(code.toLowerCase())) openDeep(code.toLowerCase());
+      }catch(e){ /* 静默 */ }
+    }
   }
 }
 
@@ -1349,12 +1356,18 @@ function attachRoce(){
 // 在评分卡标题（公司名 + ☆ 旁）显示「深度分析」按钮，点开弹出该公司的定性与定量结论。
 var DEEP_DB = null, DEEP_TRIED = false;
 async function loadDeepDB(){
-  if(DEEP_TRIED) return DEEP_DB;
+  if(DEEP_TRIED && DEEP_DB) return DEEP_DB;
   DEEP_TRIED = true;
-  try{
-    const r = await fetch(dataUrl('deep_analysis.json'), { cache:'no-cache' });
-    DEEP_DB = r.ok ? await r.json() : {};
-  }catch(e){ DEEP_DB = {}; console.warn('deep_analysis.json 加载失败:', e.message); }
+  // 该文件较大（~16MB，Netlify 侧 br 压缩后约数 MB）；失败时重试一次，避免一次网络抖动导致全站按钮消失
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const r = await fetch(dataUrl('deep_analysis.json'), { cache:'no-cache' });
+      if(r.ok){ DEEP_DB = await r.json(); return DEEP_DB; }
+    }catch(e){
+      console.warn('deep_analysis.json 加载失败(第'+(attempt+1)+'次):', e.message);
+    }
+  }
+  DEEP_DB = DEEP_DB || {};
   return DEEP_DB;
 }
 function deepHas(code){ return !!(DEEP_DB && DEEP_DB[code]); }

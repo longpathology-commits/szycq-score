@@ -28,6 +28,7 @@ const FACTORS = [
 const LOWYEAR = {key:'lowYearPct', name:'现价比一年最低', max:60, valFmt:v=>v==null?'—':v.toFixed(1)+'%', subFmt:(e)=>{ if(e.lowYearPct==null) return ''; if(Math.abs(e.lowYearPct)<0.5) return '近一年最低'; return '最低¥'+e.lowYear+(e.lowYearDate?'/'+e.lowYearDate:''); }};
 
 let ALL = [];               // 全量数据
+let DEEPSET = null;         // 已收录「深度分析」的代码集合（来自 deep_codes.json，体积小）
 let view = [];              // 筛选+排序后
 let currentPage = 1;
 const state = {
@@ -120,7 +121,7 @@ function render(){
     const lyCell = `<td><span class="sc" style="background:${scoreColor(0,1).bg};color:var(--ink)">${e.lowYearPct==null?'—':LOWYEAR.valFmt(e.lowYearPct)}</span>${lySub}</td>`;
     return `<tr class="row" data-code="${e.code}">
       <td class="rank">${e.rank}</td>
-      <td class="name">${e.name}<div class="code">${e.code}</div></td>
+      <td class="name">${e.name}${DEEPSET && DEEPSET.has(e.code) ? '<span class="deep-badge" title="点击直接查看该公司的深度分析">深度分析</span>' : ''}<div class="code">${e.code}</div></td>
       <td class="total">${e.total}</td>
       ${cells}
       ${lyCell}
@@ -130,7 +131,10 @@ function render(){
   $('tableWrap').innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
   // 行点击 → 回主页并选中
   document.querySelectorAll('tr.row').forEach(tr=>{
-    tr.onclick=()=>{ window.location.href='index.html?code='+tr.dataset.code; };
+    tr.onclick=(ev)=>{
+      const isDeep = ev.target && ev.target.classList && ev.target.classList.contains('deep-badge');
+      window.location.href='index.html?code='+tr.dataset.code+(isDeep?'&deep=1':'');
+    };
   });
   // 表头排序点击
   document.querySelectorAll('th[data-sort]').forEach(th=>{
@@ -208,8 +212,14 @@ async function init(){
     $('filterPanel').style.boxShadow='0 0 0 3px rgba(37,99,235,.35)';
   }
   try{
-    const res=await fetch('all.json?v=202608102107', { cache:'no-cache' });
-    ALL=await res.json();
+    const [resAll, resDeep] = await Promise.all([
+      fetch('all.json?v=202608102107', { cache:'no-cache' }),
+      fetch('deep_codes.json', { cache:'no-cache' }).catch(()=>null)
+    ]);
+    ALL=await resAll.json();
+    try{
+      if(resDeep && resDeep.ok){ const arr=await resDeep.json(); DEEPSET=new Set(arr); }
+    }catch(e){ DEEPSET=null; }
     apply();
   }catch(e){
     $('tableWrap').innerHTML='<div class="loading">数据加载失败，请刷新重试。</div>';
