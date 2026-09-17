@@ -1,7 +1,7 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202609161700'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609171100'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
 async function fetchGz(url){
@@ -1128,7 +1128,13 @@ function fwdTip(d){
   let t = '前瞻赋分 fwdSc = D + P + C + O（各子项相加，|合计|>8 时软收口至 ±10）。';
   t += '\\n【行业组】'+(d.fwdGrp||'-');
   if(parts.length) t += ' ｜ '+parts.join(' ｜ ');
-  const srcName = d.fwdSrc==='manual' ? '逐家人工分析' : (d.fwdSrc==='auto' ? '量化代理（行业内超额营收增速/定价权/规模/稳定性 + 最新单季动能）' : '数据不足');
+  const AUTO_SRC = '量化代理（行业内超额营收增速/定价权/规模/稳定性 + 最新单季动能）';
+  let srcName;
+  if(d.fwdSrc==='manual') srcName = '逐家人工分析';
+  else if(d.fwdSrc==='auto') srcName = AUTO_SRC;
+  else if(d.fwdSrc==='auto+da') srcName = AUTO_SRC + ' → 再叠加深度分析校正';
+  else if(d.fwdSrc==='manual+da') srcName = '逐家人工分析 → 再叠加深度分析校正';
+  else srcName = '数据不足';
   t += '\\n【公司差异来源】'+srcName;
   if(d.fwdNote) t += '\\n【依据】'+d.fwdNote;
   return t.replace(/"/g,'&quot;');
