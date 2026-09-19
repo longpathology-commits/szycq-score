@@ -43,6 +43,10 @@
   .fbtns .apply{background:var(--brand);color:#fff;}
   .fbtns .reset{background:#eef2f7;color:var(--ink);}
   .ftip{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;}
+  /* 拉黑按钮（公司名旁）：点击后该公司直接从名单移除 */
+  .blk-btn{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;margin-top:4px;font-weight:500;font-family:inherit}
+  .blk-btn:hover{background:#fee2e2}
+  .black-mgr{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:9px;padding:4px 10px;font-size:12px;margin-left:8px}
   /* 右侧表格 */
   .mainpanel{min-width:0;padding:14px 16px;}
   .mhead{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
@@ -96,6 +100,7 @@
   <h1>守正亦出齐</h1>
   <h2>A股多因子实时评分模型 · 全量榜单</h2>
   <a class="back" href="index.html">← 返回主页</a>
+  <span id="black-count" class="black-mgr" style="display:none" title="被拉黑的公司已移出名单；回主页点「黑名单」可逐个恢复">黑名单 0</span>
 </div>
 
 <div class="layout">
@@ -179,6 +184,6 @@
   </div>
 </div>
 
-<script src="all.js?v=202609171100"></script>
+<script src="all.js?v=202609182330"></script>
 </body>
 </html>

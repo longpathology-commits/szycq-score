@@ -30,6 +30,24 @@ const LOWYEAR = {key:'lowYearPct', name:'现价比一年最低', max:60, valFmt:
 let ALL = [];               // 全量数据
 let DEEPSET = null;         // 已收录「深度分析」的代码集合（来自 deep_codes.json，体积小）
 let view = [];              // 筛选+排序后
+// 黑名单（与首页共用 localStorage 键）：被拉黑的公司直接从名单移除
+const BL_KEY = 'szycq_blacklist_v1';
+let BLACK = (function(){
+  try { return new Set(JSON.parse(localStorage.getItem(BL_KEY) || '[]')); }
+  catch(e){ return new Set(); }
+})();
+function isBlack(code){ return !!code && BLACK.has(String(code).toLowerCase()); }
+function blacklistAdd(code){
+  if(!code) return;
+  BLACK.add(String(code).toLowerCase());
+  try { localStorage.setItem(BL_KEY, JSON.stringify([...BLACK])); } catch(e){}
+  syncBlackCount();
+  apply();
+}
+function syncBlackCount(){
+  const n = document.getElementById('black-count');
+  if(n){ n.textContent = '黑名单 ' + BLACK.size; n.style.display = BLACK.size ? '' : 'none'; }
+}
 let currentPage = 1;
 const state = {
   sortField:'total',
@@ -84,7 +102,8 @@ function apply(){
     if(av==null) av=-1e9; if(bv==null) bv=-1e9;
     return (av-bv)*dir;
   });
-  view = arr;
+  view = arr.filter(e=>!isBlack(e.code));   // 黑名单：拉黑的公司直接移出名单
+  syncBlackCount();
   currentPage = 1;
   render();
 }
@@ -121,7 +140,7 @@ function render(){
     const lyCell = `<td><span class="sc" style="background:${scoreColor(0,1).bg};color:var(--ink)">${e.lowYearPct==null?'—':LOWYEAR.valFmt(e.lowYearPct)}</span>${lySub}</td>`;
     return `<tr class="row" data-code="${e.code}">
       <td class="rank">${e.rank}</td>
-      <td class="name">${e.name}${DEEPSET && DEEPSET.has(e.code) ? '<span class="deep-badge" title="点击直接查看该公司的深度分析">深度分析</span>' : ''}<div class="code">${e.code}</div></td>
+      <td class="name">${e.name}${DEEPSET && DEEPSET.has(e.code) ? '<span class="deep-badge" title="点击直接查看该公司的深度分析">深度分析</span>' : ''}<div class="code">${e.code}</div><button class="blk-btn" data-bl="${e.code}" title="拉黑后该公司直接从名单移除">拉黑</button></td>
       <td class="total">${e.total}</td>
       ${cells}
       ${lyCell}
@@ -135,6 +154,10 @@ function render(){
       const isDeep = ev.target && ev.target.classList && ev.target.classList.contains('deep-badge');
       window.location.href='index.html?code='+tr.dataset.code+(isDeep?'&deep=1':'');
     };
+  });
+  // 拉黑按钮：点击后直接从名单移除（阻止冒泡，避免触发整行跳转）
+  document.querySelectorAll('button[data-bl]').forEach(b=>{
+    b.onclick=(ev)=>{ ev.stopPropagation(); blacklistAdd(b.getAttribute('data-bl')); };
   });
   // 表头排序点击
   document.querySelectorAll('th[data-sort]').forEach(th=>{

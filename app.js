@@ -1,11 +1,11 @@
 // 守正亦出齐 · A股多因子实时评分模型 - 前端
 // 依赖静态数据：name_index.json + ranking.json + data/<code>.json
 
-const APP_VER = '202609171100'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
+const APP_VER = '202609182330'; // 每次部署递增；所有静态资源加 ?v 强制浏览器刷新缓存
 function dataUrl(u){ return u + (u.indexOf('?')>=0 ? '&' : '?') + 'v=' + APP_VER; }
 // 解压读取 gzip 桶文件（桶已 gzip 压缩以压缩部署体积）
-async function fetchGz(url){
-  const r = await fetch(url, { cache:'force-cache' });
+async function fetchGz(url, cacheMode){
+  const r = await fetch(url, { cache: cacheMode || 'force-cache' });
   if(!r.ok) throw new Error('HTTP ' + r.status);
   const buf = await r.arrayBuffer();
   const ds = new DecompressionStream('gzip');
@@ -22,6 +22,16 @@ let currentData = null;
 let currentMetric = 'np';  // quarterly chart metric (np / rev / both)
 let currentKPeriod = 'daily'; // daily / weekly / monthly
 let rankList = [];        // 全市场排名 [{rank,code,name,total}]（懒加载 + localStorage 缓存）
+
+// ----- 黑名单（拉黑）：被拉黑的公司直接从榜单中移除 -----
+const BL_KEY = 'szycq_blacklist_v1';
+let BLACK = (function(){
+  try { return new Set(JSON.parse(localStorage.getItem(BL_KEY) || '[]')); }
+  catch(e){ return new Set(); }
+})();
+let rankTopAll = [];   // 榜单全量副本（取消拉黑时用于还原）
+function blSave(){ try { localStorage.setItem(BL_KEY, JSON.stringify([...BLACK])); } catch(e){} }
+function isBlack(code){ return !!code && BLACK.has(String(code).toLowerCase()); }
 
 // ----- 评分规则（与 build_dist.js 完全一致） -----
 function num(v){ if(v==null||v===''||isNaN(+v)) return null; return +v; }
@@ -80,9 +90,60 @@ let boardSlice = 0;          // 已渲染到第几条
 const BOARD_PAGE = 120;      // 每批渲染数量
 async function loadBoard(){
   const top = await fetch(dataUrl('ranking.json')).then(r=>r.json());
-  rankTop = top;
-  if(rankTop.length) rankTop.sort((a,b)=>a.rank-b.rank); // 严格按排名升序，便于定位
+  rankTopAll = top.slice();
+  if(rankTopAll.length) rankTopAll.sort((a,b)=>a.rank-b.rank); // 严格按排名升序，便于定位
+  applyBlackFilter();
   renderBoard();
+}
+
+// ----- 黑名单逻辑 -----
+// 把被拉黑的公司从榜单数组中剔除（榜单据此渲染，等同于直接移出名单）
+function applyBlackFilter(){
+  rankTop = rankTopAll.filter(e => !isBlack(e.code));
+}
+// 拉黑 / 取消拉黑；返回拉黑后的状态（true=已拉黑）
+function toggleBlack(code){
+  if(!code) return false;
+  const c = String(code).toLowerCase();
+  if(BLACK.has(c)) BLACK.delete(c); else BLACK.add(c);
+  blSave();
+  applyBlackFilter();
+  renderBoard();
+  syncBlackBtn();
+  renderBlackPanel();
+  return BLACK.has(c);
+}
+// 同步「拉黑」按钮与黑名单计数
+function syncBlackBtn(){
+  const b = document.getElementById('black-btn');
+  if(b){
+    const on = isBlack(currentCode);
+    b.style.display = currentCode ? '' : 'none';
+    b.textContent = on ? '已拉黑 ✓' : '拉黑';
+    b.title = on ? '点击取消拉黑，该公司将重新出现在榜单' : '拉黑后该公司将直接从榜单移除';
+    b.classList.toggle('black-on', on);
+  }
+  const n = document.getElementById('black-count');
+  if(n){
+    n.textContent = '黑名单 ' + BLACK.size;
+    n.style.display = BLACK.size ? '' : 'none';
+  }
+}
+// 渲染黑名单管理弹窗内容（可逐个恢复）
+function renderBlackPanel(){
+  const body = document.getElementById('black-body');
+  if(!body) return;
+  if(!BLACK.size){ body.innerHTML = '<div class="empty-tip">黑名单为空。在评分框点击「拉黑」即可把公司移出榜单。</div>'; return; }
+  body.innerHTML = [...BLACK].map(c => {
+    const hit = nameIdx.find(x => x.c === c);
+    const nm = hit ? hit.n : c;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px dashed #eef0f4;padding:7px 0">'
+      + '<span><strong>' + (nm || c) + '</strong> <span class="code">' + c.toUpperCase() + '</span></span>'
+      + '<button class="mini-btn" data-unblack="' + c + '">恢复</button></div>';
+  }).join('');
+  body.querySelectorAll('[data-unblack]').forEach(function(btn){
+    btn.onclick = function(){ toggleBlack(btn.getAttribute('data-unblack')); };
+  });
 }
 
 function renderBoard(){
@@ -414,6 +475,7 @@ function renderScore(realtime){
   const validPrice = (typeof price === 'number' && !isNaN(price)) ? price : null;
   const mcap = (d.shares && validPrice) ? validPrice * d.shares / 1e8 : null; // 亿元
   document.getElementById('score-title').textContent = `${d.name}（${d.code}）评分`;
+  syncBlackBtn();
   const __db = document.getElementById('deep-btn');
   if(__db) __db.style.display = deepHas(d.code) ? '' : 'none';
   updateStar();
@@ -894,7 +956,7 @@ async function maybeAutoSelect(){
     // 支持从榜单页「深度分析」标记直达：index.html?code=xxx&deep=1
     if(params.get('deep')){
       try{
-        await loadDeepDB();
+        await loadDeepCodes();
         if(deepHas(code.toLowerCase())) openDeep(code.toLowerCase());
       }catch(e){ /* 静默 */ }
     }
@@ -1274,6 +1336,21 @@ function attachRoce(){
     updateStar();
     renderWatch();
   };
+  // 拉黑按钮：点击后该公司直接从榜单移除
+  const bb = document.getElementById('black-btn');
+  if(bb) bb.onclick = () => { if(currentCode) toggleBlack(currentCode); };
+  // 黑名单管理弹窗（查看 / 逐个恢复）
+  const bmgr = document.getElementById('black-count');
+  if(bmgr) bmgr.onclick = () => {
+    renderBlackPanel();
+    const m = document.getElementById('black-modal');
+    if(m) m.style.display = 'flex';
+  };
+  const bclose = document.getElementById('black-close');
+  if(bclose) bclose.onclick = () => { const m = document.getElementById('black-modal'); if(m) m.style.display = 'none'; };
+  const bmask = document.getElementById('black-modal');
+  if(bmask) bmask.addEventListener('click', function(ev){ if(ev.target === bmask) bmask.style.display = 'none'; });
+  syncBlackBtn();
   loadBoard();      // 不阻塞：排行榜自行加载渲染
   loadIndex();      // 不阻塞：localStorage 缓存优先 + 后台更新
   loadHealth();    // 不阻塞：数据健康度条
@@ -1358,41 +1435,78 @@ function attachRoce(){
 })();
 
 // ----- 深度分析（定性 + 定量）-----
-// 数据文件 deep_analysis.json：{ code: { name, date, verdict, tags[], quant[][], sections[{t,items[]}] } }
-// 在评分卡标题（公司名 + ☆ 旁）显示「深度分析」按钮，点开弹出该公司的定性与定量结论。
-var DEEP_DB = null, DEEP_TRIED = false;
-async function loadDeepDB(){
-  if(DEEP_TRIED && DEEP_DB) return DEEP_DB;
-  DEEP_TRIED = true;
-  // 该文件较大（~16MB，Netlify 侧 br 压缩后约数 MB）；失败时重试一次，避免一次网络抖动导致全站按钮消失
-  for(let attempt=0; attempt<2; attempt++){
-    try{
-      const r = await fetch(dataUrl('deep_analysis.json'), { cache:'no-cache' });
-      if(r.ok){ DEEP_DB = await r.json(); return DEEP_DB; }
-    }catch(e){
-      console.warn('deep_analysis.json 加载失败(第'+(attempt+1)+'次):', e.message);
-    }
-  }
-  DEEP_DB = DEEP_DB || {};
-  return DEEP_DB;
+// 数据文件已按 code.slice(-2)%64 拆成 64 个 gzip 分片：deep/d/NN.json.gz（每片约 25–145KB）。
+// 旧版整体拉取 deep_analysis.json（20MB+），改为**按需只拉所在分片**，开弹窗从下载 20MB 降到 ~85KB。
+// 结构不变：{ code: { name, date, verdict, tags[], quant[][], sections[{t,items[]}] } }
+var DEEP_CODES = null;      // Set<code>，「已收录」轻量清单（deep_codes.json，~50KB）
+var DEEP_SHARDS = {};       // { bucketKey: { code: entry } } 已加载分片的缓存
+var DEEP_LOADING = {};      // { bucketKey: Promise } 防止同一分片并发重复拉取
+function deepBucketKey(code){
+  return String(parseInt(code.slice(-2), 10) % 64).padStart(2, '0');
 }
-function deepHas(code){ return !!(DEEP_DB && DEEP_DB[code]); }
+// 加载「已收录代码」集合（小文件），仅用于判断深度分析按钮是否显示
+async function loadDeepCodes(){
+  if(DEEP_CODES) return DEEP_CODES;
+  try{
+    const r = await fetch(dataUrl('deep_codes.json'), { cache:'no-cache' });
+    if(r.ok){
+      const arr = await r.json();
+      DEEP_CODES = new Set(Array.isArray(arr) ? arr : []);
+      return DEEP_CODES;
+    }
+  }catch(e){ console.warn('deep_codes.json 加载失败:', e.message); }
+  DEEP_CODES = new Set();
+  return DEEP_CODES;
+}
+function deepHas(code){
+  return !!(code && DEEP_CODES && DEEP_CODES.has(code));
+}
+// 按需加载某只股票所在分片，返回该条目（无则 null）
+async function loadDeepEntry(code){
+  if(!code) return null;
+  const bk = deepBucketKey(code);
+  if(DEEP_SHARDS[bk]) return DEEP_SHARDS[bk][code] || null;
+  if(!DEEP_LOADING[bk]){
+    // 用 no-cache：深度分析会随每次增补更新，避免拿到旧分片
+    DEEP_LOADING[bk] = fetchGz(dataUrl('deep/d/' + bk + '.json.gz'), 'no-cache')
+      .then(function(obj){ DEEP_SHARDS[bk] = obj || {}; return DEEP_SHARDS[bk]; })
+      .catch(function(e){ console.warn('deep 分片 ' + bk + ' 加载失败:', e.message); DEEP_SHARDS[bk] = {}; return DEEP_SHARDS[bk]; });
+  }
+  const shard = await DEEP_LOADING[bk];
+  return shard[code] || null;
+}
 function deepEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function openDeep(code){
-  const a = DEEP_DB && DEEP_DB[code];
-  if(!a){ return; }
+// 深度分析文本里的 **粗体** 标记统一渲染为 <b>（全库约 2.5 万处，此前是原样显示星号的缺陷）
+function deepMd(s){ return deepEsc(s).replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>'); }
+// 占位符安全网：深度分析条目未跑完 Phase B 时，管理层联网核查段会残留「待联网核查」。
+// 渲染时统一中性化，避免把半成品暴露给用户（真正完成由 merge 替换占位符）。
+function deepCleanPending(s){ return String(s==null?'':s).replace(/待联网核查/g, '（联网核查尚未完成）'); }
+async function openDeep(code){
+  // 先开弹窗显示「加载中」，再异步取分片（分片很小，通常一闪而过）
+  const _t = document.getElementById('deep-title');
+  const _s = document.getElementById('deep-sub');
+  const _b = document.getElementById('deep-body');
+  if(_t) _t.textContent = '深度分析';
+  if(_s) _s.textContent = '加载中…';
+  if(_b) _b.innerHTML = '';
+  document.getElementById('deep-modal').style.display = 'flex';
+  const a = await loadDeepEntry(code);
+  if(!a){
+    if(_s) _s.textContent = '暂无该公司的深度分析';
+    return;
+  }
   document.getElementById('deep-title').innerHTML = deepEsc(a.name || code) + ' · 深度分析';
   const tags = (a.tags && a.tags.length) ? a.tags.map(t=>'<span class="deep-tag">'+deepEsc(t)+'</span>').join(' ') : '';
   document.getElementById('deep-sub').innerHTML =
     (a.date ? '分析日期 ' + deepEsc(a.date) + ' ｜ ' : '') + '定性判断 + 定量关键指标' + (tags ? ' ｜ ' + tags : '');
   let h = '';
-  if(a.verdict) h += '<div class="deep-verdict"><b>结论：</b>' + deepEsc(a.verdict) + '</div>';
+  if(a.verdict) h += '<div class="deep-verdict"><b>结论：</b>' + deepMd(deepCleanPending(a.verdict)) + '</div>';
   if(a.quant && a.quant.length){
-    h += '<div class="deep-quant">' + a.quant.map(q => '<div class="deep-q"><span>'+deepEsc(q[0])+'</span><b>'+deepEsc(q[1])+'</b></div>').join('') + '</div>';
+    h += '<div class="deep-quant">' + a.quant.map(q => '<div class="deep-q"><span>'+deepEsc(q[0])+'</span><b>'+deepMd(q[1])+'</b></div>').join('') + '</div>';
   }
   (a.sections || []).forEach(s => {
     h += '<div class="deep-sec"><h4>' + deepEsc(s.t) + '</h4><ul>'
-      + (s.items || []).map(i => '<li>' + deepEsc(i) + '</li>').join('') + '</ul></div>';
+      + (s.items || []).map(i => '<li>' + deepMd(deepCleanPending(i)) + '</li>').join('') + '</ul></div>';
   });
   h += '<div style="font-size:11px;color:var(--muted);margin-top:6px">本分析基于公开数据与公司公告整理，不构成投资建议。</div>';
   document.getElementById('deep-body').innerHTML = h;
@@ -1406,7 +1520,8 @@ function closeDeep(){ const m = document.getElementById('deep-modal'); if(m) m.s
   if(c) c.onclick = closeDeep;
   const m = document.getElementById('deep-modal');
   if(m) m.onclick = (e) => { if(e.target === m) closeDeep(); };
-  if(b) loadDeepDB().then(() => { if(currentData){ try { renderScore(); } catch(e){} } });
+  // 只需拉 ~50KB 的「已收录代码」清单即可决定按钮显隐，不再预载整个深度分析库
+  if(b) loadDeepCodes().then(() => { if(currentData){ try { renderScore(); } catch(e){} } });
 })();
 
 // ----- 前瞻股息率可信度说明（点击股息率旁的红色标记弹出）-----
@@ -1435,4 +1550,95 @@ function closeDivWarn(){ const m = document.getElementById('divwarn-modal'); if(
 (function initDivWarn(){
   const c = document.getElementById('divwarn-close'); if(c) c.onclick = closeDivWarn;
   const m = document.getElementById('divwarn-modal'); if(m) m.onclick = (e) => { if(e.target === m) closeDivWarn(); };
+})();
+
+// ----- 前瞻赋分明细（点评分行「明细」弹出：逐项展示加分 / 扣分与分数由来）-----
+// 数据来自桶记录字段 fwdDet（由 web/scripts/build_fwd.js 生成 det，经 build_dist.js 写入）
+function openFwdDet(){
+  const d = currentData; if(!d) return;
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const n2 = v => Math.round((v||0)*100)/100;
+  const sg = v => (n2(v) > 0 ? '+' : '') + n2(v);
+  const cls = v => (v > 0 ? 'pos' : (v < 0 ? 'neg' : ''));
+  function fwRow(x){
+    return '<div class="fw-row"><span class="fw-v ' + cls(x.v) + '">' + sg(x.v) + '</span>'
+      + '<span class="fw-k">' + esc(x.k) + '<span class="fw-tag">' + esc(x.t) + '</span></span>'
+      + '<span class="fw-d">' + esc(x.d || '') + '</span></div>';
+  }
+  const det = d.fwdDet;
+  document.getElementById('fwd-title').textContent = '前瞻赋分明细';
+  document.getElementById('fwd-sub').innerHTML = esc((d.name || '') + '（' + (d.code || '') + '）') + ' · 满分区间 −10 ~ +10';
+  let h = '';
+  if(!det || !det.r){
+    h += '<div class="fw-empty">暂无逐项明细。该明细由 <code>web/scripts/build_fwd.js</code> 生成，需重建数据（build_fwd → build_dist）后才会出现在页面上。<br>当前仅有四支柱分值：'
+      + ' D ' + sg(d.fwdD) + ' / P ' + sg(d.fwdP) + ' / C ' + sg(d.fwdC) + ' / O ' + sg(d.fwdO) + '。</div>';
+    if(d.fwdNote) h += '<div class="fw-sec"><h4>文字依据</h4><div class="fw-d">' + esc(d.fwdNote) + '</div></div>';
+  } else {
+    const r = det.r;
+    const AUTO_SRC = '量化代理（行业内超额营收增速 / 定价权 / 规模 / 稳定性 + 最新单季动能）';
+    let srcName;
+    if(d.fwdSrc === 'manual') srcName = '逐家人工分析';
+    else if(d.fwdSrc === 'auto') srcName = AUTO_SRC;
+    else if(d.fwdSrc === 'auto+da') srcName = AUTO_SRC + ' → 再叠加深度分析校正';
+    else if(d.fwdSrc === 'manual+da') srcName = '逐家人工分析 → 再叠加深度分析校正';
+    else srcName = '数据不足';
+    // ① 四支柱结算卡
+    h += '<div class="fw-grid">'
+      + '<div class="fw-card"><div class="fw-cn">D 行业需求趋势</div><div class="fw-cv ' + cls(r.D) + '">' + sg(r.D) + '</div><div class="fw-cw">行业级 ±6</div></div>'
+      + '<div class="fw-card"><div class="fw-cn">P 政策 / 供给对冲</div><div class="fw-cv ' + cls(r.P) + '">' + sg(r.P) + '</div><div class="fw-cw">行业级 ±4</div></div>'
+      + '<div class="fw-card"><div class="fw-cn">C 公司竞争位势</div><div class="fw-cv ' + cls(r.C) + '">' + sg(r.C) + '</div><div class="fw-cw">公司级 ±5</div></div>'
+      + '<div class="fw-card"><div class="fw-cn">O 公司成长动能</div><div class="fw-cv ' + cls(r.O) + '">' + sg(r.O) + '</div><div class="fw-cw">公司级 ±5</div></div>'
+      + '</div>';
+    // ② 结算过程
+    const capped = Math.abs(r.raw) > 8;
+    h += '<div class="fw-sum">'
+      + 'D ' + sg(r.D) + ' ＋ P ' + sg(r.P) + ' ＋ C ' + sg(r.C) + ' ＋ O ' + sg(r.O) + ' ＝ <b>' + sg(r.raw) + '</b>'
+      + (capped ? '　→　|合计| &gt; 8，超出部分按 0.4 压缩 → <b>' + sg(r.soft) + '</b>' : '　→　|合计| ≤ 8，直接取用')
+      + '　→　最终 <b>fwdSc ' + (r.fin > 0 ? '+' : '') + r.fin + '</b>'
+      + '<div class="fw-sum-w">行业组：' + esc(det.g || '-') + '　｜　来源：' + esc(srcName) + '</div></div>';
+    // ③ 构成项（加分 / 扣分）
+    const items = (det.b || []).slice();
+    const pos = items.filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+    const neg = items.filter(x => x.v < 0).sort((a, b) => a.v - b.v);
+    const zero = items.filter(x => x.v === 0);
+    const sumOf = arr => n2(arr.reduce((s, x) => s + x.v, 0));
+    h += '<div class="fw-sec"><h4>构成项<span>子项合计 ' + sg(sumOf(items)) + '</span></h4>';
+    if(pos.length){
+      h += '<div class="fw-sub">加分项 ' + pos.length + ' 项，合计 ' + sg(sumOf(pos)) + '</div>';
+      h += pos.map(fwRow).join('');
+    }
+    if(neg.length){
+      h += '<div class="fw-sub neg">扣分项 ' + neg.length + ' 项，合计 ' + sg(sumOf(neg)) + '</div>';
+      h += neg.map(fwRow).join('');
+    }
+    if(zero.length){
+      h += '<div class="fw-sub">中性项 ' + zero.length + ' 项（不加不减）</div>';
+      h += zero.map(fwRow).join('');
+    }
+    if(!items.length) h += '<div class="fw-d">无构成项</div>';
+    h += '</div>';
+    // ④ 调整项（强制下压）
+    if((det.a || []).length){
+      h += '<div class="fw-sec"><h4>调整项<span>在构成项之上强制下压，' + det.a.length + ' 项</span></h4>';
+      h += det.a.map(x => {
+        const delta = n2(x.x - x.f);
+        return '<div class="fw-row"><span class="fw-v ' + cls(delta) + '">' + sg(delta) + '</span>'
+          + '<span class="fw-k">' + esc(x.k) + '<span class="fw-tag">' + esc(x.t) + '</span></span>'
+          + '<span class="fw-d">' + esc(x.d || '') + '　<span class="fw-mv">' + esc(x.t) + ' ' + sg(x.f) + ' → ' + sg(x.x) + '</span></span></div>';
+      }).join('');
+      h += '</div>';
+    }
+    // ⑤ 文字依据
+    if(d.fwdNote) h += '<div class="fw-sec"><h4>文字依据</h4><div class="fw-d">' + esc(d.fwdNote) + '</div></div>';
+    h += '<div class="fw-note">口径：fwdSc ＝ D ＋ P ＋ C ＋ O，四支柱相加后软收口至 ±10（|合计| 超过 8 的部分按 0.4 压缩，避免大量公司堆在上限失去区分度）。'
+      + '<b>构成项</b>是按行业基调与行业内分位算出的原始赋分；<b>调整项</b>是在其之上施加的强制下压（利润增长硬约束、现金流校验、深度分析校正），'
+      + '只降不升。行业级两项（D 需求、P 政策）同一行业内的公司通常相同，公司之间的差异由 C、O 承担。本明细为模型内部口径展示，不构成投资建议。</div>';
+  }
+  document.getElementById('fwd-body').innerHTML = h;
+  document.getElementById('fwd-modal').style.display = 'flex';
+}
+function closeFwdDet(){ const m = document.getElementById('fwd-modal'); if(m) m.style.display = 'none'; }
+(function initFwdDet(){
+  const c = document.getElementById('fwd-close'); if(c) c.onclick = closeFwdDet;
+  const m = document.getElementById('fwd-modal'); if(m) m.onclick = (e) => { if(e.target === m) closeFwdDet(); };
 })();

@@ -343,7 +343,7 @@
     </div>
     <!-- 评分前10 -->
     <div class="panel" id="board-panel">
-      <h3><input id="board-jump" class="board-jump" type="number" min="1" max="5002" placeholder="跳至排名" autocomplete="off"><span class="h3-right"><a href="all.html" class="tool-btn primary" style="text-decoration:none">全部</a> <a href="hold.html" class="tool-btn" style="text-decoration:none">持股框</a> <span class="meta">日终快照</span></span></h3>
+      <h3><input id="board-jump" class="board-jump" type="number" min="1" max="5002" placeholder="跳至排名" autocomplete="off"><span class="h3-right"><a href="all.html" class="tool-btn primary" style="text-decoration:none">全部</a> <a href="hold.html" class="tool-btn" style="text-decoration:none">持股框</a> <span id="black-count" class="tool-btn black-mgr" style="display:none;cursor:pointer" title="查看并管理黑名单（可逐个恢复）">黑名单 0</span> <span class="meta">日终快照</span></span></h3>
       <div class="meta" style="font-size:11px;margin-bottom:8px">每日收盘后自动刷新 · 点击查看实时详情 · 向下滚动看更多</div>
       <div id="board-top10"></div>
     </div>
@@ -355,7 +355,7 @@
     <!-- 第一行：评分卡 + 营收/利润（同高对齐） -->
     <div class="detail-row">
       <div class="panel area-score" id="score-panel" style="display:none">
-        <h3><span id="score-title">公司评分</span> <span id="star-btn" class="star-btn" title="加入 / 移出标记框">☆</span><span id="star-hint" class="star-hint"></span><button id="deep-btn" class="deep-btn" style="display:none" title="查看该公司的定性与定量深度分析">深度分析 ▸</button></h3>
+        <h3><span id="score-title">公司评分</span> <span id="star-btn" class="star-btn" title="加入 / 移出标记框">☆</span><span id="star-hint" class="star-hint"></span><button id="deep-btn" class="deep-btn" style="display:none" title="查看该公司的定性与定量深度分析">深度分析 ▸</button><button id="black-btn" class="black-btn" style="display:none" title="拉黑后该公司将直接从榜单移除">拉黑</button></h3>
         <div class="meta-row" id="score-meta"></div>
         <div class="cred-tip" id="score-cred" style="display:none"></div>
         <div class="score-grid" id="score-grid"></div>
@@ -491,6 +491,11 @@
   .dw-li:before{content:"!";position:absolute;left:0;top:2px;width:14px;height:14px;line-height:13px;text-align:center;border-radius:50%;background:#fde8e8;color:#c0392b;border:1px solid #f0a9a0;font-size:10px;font-weight:700}
   .dw-note{margin-top:14px;font-size:11px;color:var(--muted);line-height:1.65;border-top:1px solid #eef0f4;padding-top:10px}
   .cf-hint.warn{cursor:pointer}
+  /* 拉黑按钮（评分框内，公司名右侧） */
+  .black-btn{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:6px;font-weight:500}
+  .black-btn:hover{background:#fee2e2}
+  .black-btn.black-on{background:#b91c1c;border-color:#b91c1c;color:#fff}
+  .black-mgr{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
 </style>
 <div id="deep-modal" class="modal-mask" style="display:none">
   <div class="modal-box deep-modal-box">
@@ -499,6 +504,18 @@
     <div class="deep-body" id="deep-body"></div>
     <div class="roce-modal-foot" style="justify-content:flex-end">
       <button class="mini-btn primary" id="deep-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 黑名单管理弹窗（被拉黑的公司已移出榜单，可在此恢复） -->
+<div id="black-modal" class="modal-mask" style="display:none">
+  <div class="modal-box" style="width:min(560px,92vw);max-height:86vh;display:flex;flex-direction:column">
+    <div class="modal-title">黑名单</div>
+    <div class="modal-sub" id="black-sub">被拉黑的公司已从榜单中移除，可在此逐个恢复</div>
+    <div class="dw-body" id="black-body"></div>
+    <div class="roce-modal-foot" style="justify-content:flex-end">
+      <button class="mini-btn primary" id="black-close">关闭</button>
     </div>
   </div>
 </div>
@@ -515,7 +532,19 @@
   </div>
 </div>
 
-<script src="watchstore.js?v=202609171100"></script>
-<script src="app.js?v=202609171100"></script>
+<!-- 前瞻赋分明细弹窗（点击评分行「前瞻赋分」右侧的「明细」打开） -->
+<div id="fwd-modal" class="modal-mask" style="display:none">
+  <div class="modal-box fwd-box">
+    <div class="modal-title" id="fwd-title">前瞻赋分明细</div>
+    <div class="modal-sub" id="fwd-sub"></div>
+    <div class="fw-body" id="fwd-body"></div>
+    <div class="roce-modal-foot" style="justify-content:flex-end">
+      <button class="mini-btn primary" id="fwd-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="watchstore.js?v=202609182330"></script>
+<script src="app.js?v=202609182330"></script>
 </body>
 </html>
