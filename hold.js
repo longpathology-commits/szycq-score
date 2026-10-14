@@ -40,7 +40,46 @@
   var holdPrevClose = {}; // code -> 昨收（实时，来自腾讯行情 parts[4]）
   var klineCache = {};   // code -> {dates:[], closes:[]}（日K，时间升序）
 
-  function weight(){ return 0.02; } // 每只持仓占总仓位 2%
+  function weight(){ return 0.02; } // 每只持仓占总仓位 2%（基础仓位）
+
+  // 单只持仓的"批次"列表：基础买入批次 + 加仓批次（每批次有独立价格与仓位占比）
+  function lotsOf(it){
+    var arr = [{ price: it.buyPrice, weight: weight(), at: it.buyAt, base: true }];
+    (it.adds || []).forEach(function(a){ arr.push({ price: a.price, weight: (a.weight != null ? a.weight : 2) / 100, at: a.at }); });
+    return arr;
+  }
+  function boughtTodayLot(l){
+    if(!l.at) return false;
+    var d = new Date(l.at);
+    function p(x){ return (x < 10 ? '0' : '') + x; }
+    var s = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    return s === todayStr();
+  }
+  // 单只持仓的静态聚合（不依赖实时价）：总股数、总投入、加权成本
+  function positionBase(it){
+    var capital = WS.getCapital();
+    var lots = lotsOf(it);
+    var cost = 0, shares = 0;
+    lots.forEach(function(l){ var w = l.weight * capital; cost += w; shares += Math.round(w / l.price); });
+    return { lots: lots, cost: cost, shares: shares, avgCost: shares ? cost / shares : it.buyPrice };
+  }
+  // 单只持仓"今日盈亏"
+  function todayPnlOf(it, price){
+    var capital = WS.getCapital();
+    var pc = holdPrevClose[it.code];
+    var k = klineCache[it.code];
+    if(pc == null && k && k.closes.length >= 2) pc = k.closes[k.closes.length - 2];
+    if(pc == null) return { pnl: 0, pct: 0 };
+    var pnl = 0;
+    positionBase(it).lots.forEach(function(l){
+      var s = Math.round(l.weight * capital / l.price);
+      var ref = boughtTodayLot(l) ? l.price : pc;
+      pnl += s * (price - ref);
+    });
+    return { pnl: pnl, pct: capital ? pnl / capital * 100 : 0 };
+  }
+  // 加仓批次角标
+  function addLotsTag(it){ var n = (it.adds || []).length; return n ? '<div class="code-sm">已加 ' + n + ' 次</div>' : ''; }
 
   function sellTarget(it){
     var pct = (it.sellPct != null ? it.sellPct : 5);
@@ -106,16 +145,15 @@
     var rows = [];
     var invested = 0, mvTotal = 0, pnlTotal = 0, todayTotal = 0;
     list.forEach(function(it){
-      var shares = Math.round(weight() * capital / it.buyPrice);
-      var cost = weight() * capital;            // 该持仓投入本金（=总仓位×2%）
+      var pb = positionBase(it);
       var price = effPrice(it.code, it);
-      var mv = shares * price;
-      var pnl = mv - cost;
-      var ret = (price / it.buyPrice - 1) * 100;
-      var tp = todayProfitOf(it, shares, price);
+      var mv = pb.shares * price;
+      var pnl = mv - pb.cost;
+      var ret = (price / pb.avgCost - 1) * 100;
+      var tp = todayPnlOf(it, price);
       var todayPnl = tp.pnl, todayPct = tp.pct;
-      rows.push({ it: it, shares: shares, cost: cost, price: price, mv: mv, pnl: pnl, ret: ret, todayPnl: todayPnl, todayPct: todayPct });
-      invested += cost; mvTotal += mv; pnlTotal += pnl; todayTotal += todayPnl;
+      rows.push({ it: it, shares: pb.shares, cost: pb.cost, price: price, mv: mv, pnl: pnl, ret: ret, todayPnl: todayPnl, todayPct: todayPct });
+      invested += pb.cost; mvTotal += mv; pnlTotal += pnl; todayTotal += todayPnl;
     });
     return {
       capital: capital, rows: rows, invested: invested, cash: capital - invested,
@@ -191,7 +229,8 @@
       if(idx >= dates.length) idx = Math.max(0, dates.length - 1); // 快照滞后时至少保留最新点
       closes = closes.slice(idx);
       dates = dates.slice(idx);
-      valid.push({ it: it, closes: closes, dates: dates });
+      var pb = positionBase(it);
+      valid.push({ it: it, closes: closes, dates: dates, shares: pb.shares, avgCost: pb.avgCost });
     });
     if(!valid.length){ setChartNote('日K数据缺失，暂无法绘制（每日快照后自动补全）'); clearChart(); return; }
     var L = Math.min.apply(null, valid.map(function(v){ return v.closes.length; }));
@@ -200,18 +239,16 @@
     // 基准用「买入价（成本）」：使曲线末点与上方「累计收益率」(相对总仓位、以买入价为成本) 完全同口径。
     // 曲线左端(今天)不再强制为 0%，而是“自买入至今”的累计收益率；0% 参考线仍居中。
     var capital = WS.getCapital();
-    var baseAcc = 0;
-    valid.forEach(function(v){ baseAcc += weight() * v.it.buyPrice / v.it.buyPrice; }); // = weight() × N（投入本金占比）
-    var baseValue = baseAcc * capital; // 以买入价计的组合市值
+    var baseValue = 0;
+    valid.forEach(function(v){ baseValue += v.shares * v.avgCost; }); // 以加权成本计的组合市值（基础）
     var rets = [];
     for(var k = 0; k < L; k++){
       var acc = 0;
       for(var i = 0; i < valid.length; i++){
-        acc += weight() * valid[i].closes[k] / valid[i].it.buyPrice;
+        acc += valid[i].shares * valid[i].closes[k]; // 该日各持仓市值之和
       }
-      var pv = acc * capital;
-      // 与上方「累计收益率」对齐：相对总仓位（含空仓）的盈亏率，而非仅持仓部分的市值比率
-      rets.push((pv - baseValue) / capital * 100);
+      // 与上方「累计收益率」对齐：相对总仓位（含空仓）的盈亏率
+      rets.push((acc - baseValue) / capital * 100);
     }
     drawReturnCurve(rets, dates);
     var last = rets[rets.length - 1];
@@ -313,16 +350,17 @@
     }
     var capital = WS.getCapital();
     var html = '<table class="hold-table"><thead><tr>'
-      + '<th>公司</th><th>买入价</th><th>当前价</th><th>股数</th><th>市值</th><th>收益率</th><th>今日</th><th>上涨%</th><th>目标卖出价</th><th>提醒</th><th>操作</th>'
+      + '<th>公司</th><th>买入价</th><th>当前价</th><th>股数</th><th>市值</th><th>收益率</th><th>今日</th><th>上涨%</th><th>目标卖出价</th><th>提醒</th><th>加仓</th><th>操作</th>'
       + '</tr></thead><tbody>';
     for(var i = 0; i < list.length; i++){
       var it = list[i];
       var tgt = sellTarget(it);
-      var shares = Math.round(weight() * capital / it.buyPrice);
+      var pb = positionBase(it);
+      var shares = pb.shares;
       var price = effPrice(it.code, it);
       var mv = shares * price;
-      var ret = (price / it.buyPrice - 1) * 100;
-      var tp = todayProfitOf(it, shares, price);
+      var ret = (price / pb.avgCost - 1) * 100;
+      var tp = todayPnlOf(it, price);
       var todayPnl = tp.pnl, todayPct = tp.pct;
       var retCls = ret >= 0 ? 'up' : 'down';
       var todayCls = todayPnl >= 0 ? 'up' : 'down';
@@ -338,6 +376,7 @@
         + '<td><input type="number" step="0.1" min="0" value="' + it.sellPct + '" data-code="' + it.code + '" class="sell-pct-input"></td>'
         + '<td class="price-cell" style="color:var(--orange-fg)" id="hs-' + it.code + '">¥' + tgt.toFixed(2) + '</td>'
         + '<td id="ha-' + it.code + '"></td>'
+        + '<td><button class="mini-btn add" data-act="add" data-code="' + it.code + '">加仓</button>' + addLotsTag(it) + '</td>'
         + '<td><button class="mini-btn danger" data-act="sell" data-code="' + it.code + '">已卖出</button></td>'
         + '</tr>';
     }
@@ -358,6 +397,9 @@
         renderHold();
         if(window.__renderWatch) window.__renderWatch();
       };
+    });
+    root.querySelectorAll('button[data-act="add"]').forEach(function(b){
+      b.onclick = function(){ openAddModal(b.dataset.code); };
     });
     root.querySelectorAll('.sell-pct-input').forEach(function(inp){
       inp.addEventListener('change', function(){
@@ -382,10 +424,11 @@
       var price = holdPrices[it.code];
       var el = document.getElementById('hp-' + it.code);
       if(el && price != null) el.textContent = '¥' + price.toFixed(2);
-      var shares = Math.round(weight() * capital / it.buyPrice);
+      var pb = positionBase(it);
+      var shares = pb.shares;
       var p = effPrice(it.code, it);
       var mv = shares * p;
-      var ret = (p / it.buyPrice - 1) * 100;
+      var ret = (p / pb.avgCost - 1) * 100;
       var mvel = document.getElementById('hmv-' + it.code);
       if(mvel) mvel.textContent = '¥' + mv.toFixed(0);
       var rel = document.getElementById('hret-' + it.code);
@@ -431,6 +474,80 @@
   ensureAllKlines().then(function(){ renderHold(); }); // 日K加载完成后刷新"今日"与曲线
   refreshHoldPrices();
   setInterval(refreshHoldPrices, 15000);
+
+  // ---- 加仓弹框 ----
+  var addModal = document.getElementById('add-modal');
+  var addModalTitle = document.getElementById('add-modal-title');
+  var addModalSub = document.getElementById('add-modal-sub');
+  var addPriceInput = document.getElementById('add-price-input');
+  var addWeightInput = document.getElementById('add-weight-input');
+  var addModalHint = document.getElementById('add-modal-hint');
+  var addModalLots = document.getElementById('add-modal-lots');
+  var addConfirm = document.getElementById('add-confirm');
+  var addCancel = document.getElementById('add-cancel');
+  var addCurCode = null;
+
+  function openAddModal(code){
+    var it = WS.getHold().find(function(x){ return x.code === code; });
+    if(!it) return;
+    addCurCode = code;
+    addModalTitle.textContent = '加仓 · ' + it.name + ' ' + code.toUpperCase();
+    var price = holdPrices[code] != null ? holdPrices[code] : effPrice(code, it);
+    addPriceInput.value = price != null ? price.toFixed(2) : '';
+    addWeightInput.value = '2'; // 默认加仓仓位 2%
+    renderAddLots(code);
+    updateAddHint();
+    addModal.style.display = 'flex';
+    addPriceInput.focus();
+  }
+  function closeAddModal(){ if(addModal) addModal.style.display = 'none'; addCurCode = null; }
+  function renderAddLots(code){
+    var it = WS.getHold().find(function(x){ return x.code === code; });
+    var adds = (it && it.adds) || [];
+    if(!adds.length){ addModalLots.innerHTML = '<div class="code-sm" style="padding:4px 0">暂无加仓记录</div>'; return; }
+    addModalLots.innerHTML = adds.map(function(a, i){
+      return '<div class="lot"><span>加仓 ' + a.price.toFixed(2) + ' × ' + (a.weight != null ? a.weight : 2) + '%'
+        + (a.at ? ' · ' + new Date(a.at).toLocaleDateString() : '') + '</span>'
+        + '<span class="lot-rm" data-idx="' + i + '">移除</span></div>';
+    }).join('');
+    addModalLots.querySelectorAll('.lot-rm').forEach(function(b){
+      b.onclick = function(){
+        WS.removeAddLot(code, parseInt(b.dataset.idx, 10));
+        renderAddLots(code);
+        updateAddHint();
+        renderHold();
+      };
+    });
+  }
+  function updateAddHint(){
+    var code = addCurCode; if(!code) return;
+    var it = WS.getHold().find(function(x){ return x.code === code; });
+    if(!it) return;
+    var p = parseFloat(addPriceInput.value), w = parseFloat(addWeightInput.value);
+    var capital = WS.getCapital();
+    var pb = positionBase(it);
+    if(p > 0 && w > 0){
+      var newShares = Math.round(w / 100 * capital / p);
+      var totalWeight = pb.lots.reduce(function(s, l){ return s + l.weight * 100; }, 0) + w;
+      addModalHint.textContent = '本次加仓 ≈ ' + newShares.toLocaleString('en-US') + ' 股；加仓后该持仓合计约占仓位 ' + totalWeight.toFixed(1) + '%';
+    } else {
+      addModalHint.textContent = '';
+    }
+  }
+  if(addPriceInput) addPriceInput.addEventListener('input', updateAddHint);
+  if(addWeightInput) addWeightInput.addEventListener('input', updateAddHint);
+  if(addConfirm) addConfirm.onclick = function(){
+    var code = addCurCode; if(!code) return;
+    var p = parseFloat(addPriceInput.value), w = parseFloat(addWeightInput.value);
+    if(!(p > 0)){ addModalHint.textContent = '请输入有效加仓价格'; return; }
+    if(!(w > 0)){ addModalHint.textContent = '请输入有效加仓仓位'; return; }
+    WS.addAddLot(code, p, w);
+    closeAddModal();
+    renderHold();
+    if(window.__renderWatch) window.__renderWatch();
+  };
+  if(addCancel) addCancel.onclick = closeAddModal;
+  if(addModal) addModal.addEventListener('click', function(e){ if(e.target === addModal) closeAddModal(); });
 })();
 
 // ----- 持股框 导出/导入（换网址/清缓存时恢复本地数据） -----

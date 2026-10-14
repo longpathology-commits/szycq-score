@@ -66,6 +66,27 @@
     return it.targetSell;
   }
 
+  // 加仓：在持股项上追加一个加仓批次（独立价格 + 仓位占比）；weightPct 为占总仓位的百分比（如 2 表示 2%）
+  function addAddLot(code, price, weightPct){
+    var h = getHold();
+    var it = h.find(function(x){ return x.code === code; });
+    if(!it) return false;
+    if(!Array.isArray(it.adds)) it.adds = [];
+    it.adds.push({ price: Math.round(price * 100) / 100, weight: weightPct, at: Date.now() });
+    setHold(h);
+    return true;
+  }
+  // 移除指定加仓批次
+  function removeAddLot(code, idx){
+    var h = getHold();
+    var it = h.find(function(x){ return x.code === code; });
+    if(!it || !Array.isArray(it.adds) || idx == null || idx < 0 || idx >= it.adds.length) return false;
+    it.adds.splice(idx, 1);
+    if(!it.adds.length) delete it.adds;
+    setHold(h);
+    return true;
+  }
+
   // 已卖出：从持股框移回标记框（保留原目标买入价留空）
   function sell(code){
     var h = getHold();
@@ -106,6 +127,7 @@
     getHold: getHold, setHold: setHold,
     getCapital: getCapital, setCapital: setCapital,
     isWatched: isWatched, toggleWatch: toggleWatch, promoteWatch: promoteWatch,
-    buy: buy, sell: sell, setSellPct: setSellPct, fetchQuotes: fetchQuotes
+    buy: buy, sell: sell, setSellPct: setSellPct, fetchQuotes: fetchQuotes,
+    addAddLot: addAddLot, removeAddLot: removeAddLot
   };
 })();
