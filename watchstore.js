@@ -43,12 +43,13 @@
     var a = getWatch();
     var it = a.find(function(x){ return x.code === code; });
     if(!it) return false;
+    var prevTargetBuy = it.targetBuy; // 记下原目标买入价，卖出时回写标记框（不丢失）
     buyPrice = Math.round(buyPrice * 100) / 100;
     var sellPct = 5; // 默认上涨 5% 作为目标卖出
     var targetSell = Math.round(buyPrice * (1 + sellPct / 100) * 100) / 100;
     var hold = getHold();
     if(!hold.some(function(x){ return x.code === code; })){
-      hold.push({ code: code, name: it.name, buyPrice: buyPrice, sellPct: sellPct, targetSell: targetSell, buyAt: Date.now() });
+      hold.push({ code: code, name: it.name, buyPrice: buyPrice, sellPct: sellPct, targetSell: targetSell, buyAt: Date.now(), targetBuy: prevTargetBuy });
       setHold(hold);
     }
     setWatch(a.filter(function(x){ return x.code !== code; }));
@@ -87,14 +88,15 @@
     return true;
   }
 
-  // 已卖出：从持股框移回标记框（保留原目标买入价留空）
+  // 已卖出：从持股框移回标记框，并保留原先在标记框设置的目标买入价（不置空）
   function sell(code){
     var h = getHold();
     var it = h.find(function(x){ return x.code === code; });
     if(!it) return false;
+    var prevTargetBuy = it.targetBuy; // 回写原目标买入价，而不是清空
     var a = getWatch();
     if(!a.some(function(x){ return x.code === code; })){
-      a.unshift({ code: code, name: it.name, targetBuy: null }); // 回到标记框也置顶
+      a.unshift({ code: code, name: it.name, targetBuy: prevTargetBuy }); // 回到标记框也置顶，保留原目标买入价
       setWatch(a);
     }
     setHold(h.filter(function(x){ return x.code !== code; }));
